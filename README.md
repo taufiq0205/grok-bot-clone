@@ -2,6 +2,24 @@
 
 This is a Next.js template with shadcn/ui.
 
+## Environment variables
+
+For a fresh clone, copy `.env.example` to `.env.local` and fill in the Clerk
+development keys. Keep an existing `.env.local`; it already contains local keys.
+Only `.env.example` is tracked; real environment files are ignored by Git.
+
+To download development variables from Vercel, first log in and link this checkout
+to the intended project, then run:
+
+```bash
+npx vercel@latest env pull .env.local --environment=development
+```
+
+Back up `.env.local` before pulling: values with matching names may change.
+Configure deployed secrets in Vercel's project environment settings, scoped to
+Development, Preview, or Production as appropriate. Use Clerk production keys
+for Production. See the [Vercel environment CLI docs](https://vercel.com/docs/cli/env).
+
 ## Authentication
 
 Clerk provides sign-in, sign-up, account management, and sign-out. The home page
