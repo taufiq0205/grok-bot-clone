@@ -26,13 +26,14 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
 } from "@/components/ui/sidebar"
 
 export async function AppSidebar() {
   const chats = await getUserChats()
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="flex justify-end">
           <BotDialog>
@@ -75,7 +76,7 @@ export async function AppSidebar() {
           }))}
         />
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="group-data-[collapsible=icon]:overflow-y-auto">
         <SidebarGroup>
           <SidebarGroupLabel>Chats</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -84,10 +85,16 @@ export async function AppSidebar() {
                 <SidebarMenuItem key={chat.id}>
                   <SidebarMenuButton
                     size="lg"
+                    className="group-data-[collapsible=icon]:justify-center"
+                    aria-label={chat.name ?? chat.botName ?? "Untitled chat"}
+                    tooltip={chat.name ?? chat.botName ?? "Untitled chat"}
                     render={<Link href={`/chats/${chat.id}`} />}
                   >
-                    <ChatAvatar seed={chat.botAvatar ?? chat.id} />
-                    <div className="flex min-w-0 flex-1 flex-col">
+                    <ChatAvatar
+                      seed={chat.botAvatar ?? chat.id}
+                      className="group-data-[collapsible=icon]:size-6"
+                    />
+                    <div className="flex min-w-0 flex-1 flex-col group-data-[collapsible=icon]:hidden">
                       <div className="flex items-center gap-2">
                         <span className="min-w-0 flex-1 truncate">
                           {chat.name ?? chat.botName ?? "Untitled chat"}
@@ -115,7 +122,7 @@ export async function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton
               render={<div />}
-              className="p-0 has-[:focus-visible]:ring-2"
+              className="p-0 group-data-[collapsible=icon]:p-0! has-[:focus-visible]:ring-2"
             >
               <UserButton
                 showName
@@ -123,11 +130,12 @@ export async function AppSidebar() {
                   elements: {
                     rootBox: "w-full! min-w-0",
                     userButtonTrigger:
-                      "w-full! h-8! rounded-md! p-2! bg-transparent! text-inherit! shadow-none! outline-none! hover:bg-transparent! active:bg-transparent!",
-                    userButtonBox: "w-full! min-w-0 flex-row-reverse! gap-2!",
+                      "w-full! h-8! rounded-md! p-2! bg-transparent! text-inherit! shadow-none! outline-none! hover:bg-transparent! active:bg-transparent! group-data-[collapsible=icon]:p-1!",
+                    userButtonBox:
+                      "w-full! min-w-0 flex-row-reverse! gap-2! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:gap-0!",
                     userButtonAvatarBox: "size-6! shrink-0",
                     userButtonOuterIdentifier:
-                      "min-w-0 flex-1 truncate p-0! text-left text-sm! font-normal! text-inherit!",
+                      "min-w-0 flex-1 truncate p-0! text-left text-sm! font-normal! text-inherit! group-data-[collapsible=icon]:hidden!",
                   },
                 }}
               />
@@ -135,6 +143,7 @@ export async function AppSidebar() {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
+      <SidebarRail tabIndex={0} />
     </Sidebar>
   )
 }

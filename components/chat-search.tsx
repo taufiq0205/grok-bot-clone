@@ -15,6 +15,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { Kbd, KbdGroup } from "@/components/ui/kbd"
+import { useSidebar } from "@/components/ui/sidebar"
 
 export function ChatSearch({
   chats,
@@ -23,6 +24,8 @@ export function ChatSearch({
 }) {
   const [open, setOpen] = useState(false)
   const router = useRouter()
+  const { state, isMobile } = useSidebar()
+  const collapsed = state === "collapsed" && !isMobile
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -47,18 +50,31 @@ export function ChatSearch({
     <>
       <Button
         variant="ghost"
-        className="h-8 w-full min-w-0 justify-start rounded-lg border border-input bg-transparent px-2.5 py-1 text-base font-normal text-muted-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40"
+        size={collapsed ? "icon" : "default"}
+        className={
+          collapsed
+            ? undefined
+            : "h-8 w-full min-w-0 justify-start rounded-lg border border-input bg-transparent px-2.5 py-1 text-base font-normal text-muted-foreground transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40"
+        }
+        aria-label="Search chats"
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-keyshortcuts="Meta+K Control+K"
         onClick={() => setOpen(true)}
       >
-        <SearchIcon data-icon="inline-start" aria-hidden="true" />
-        Search
-        <KbdGroup className="ml-auto">
-          <Kbd>⌘ / Ctrl</Kbd>
-          <Kbd>K</Kbd>
-        </KbdGroup>
+        <SearchIcon
+          data-icon={collapsed ? undefined : "inline-start"}
+          aria-hidden="true"
+        />
+        {!collapsed && (
+          <>
+            <span>Search</span>
+            <KbdGroup className="ml-auto">
+              <Kbd>⌘ / Ctrl</Kbd>
+              <Kbd>K</Kbd>
+            </KbdGroup>
+          </>
+        )}
       </Button>
       <CommandDialog
         open={open}

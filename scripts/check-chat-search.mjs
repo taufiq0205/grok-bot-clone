@@ -7,6 +7,7 @@ let open = false
 let listener
 let cleanup
 let destination
+let sidebarState = "expanded"
 const exports = {}
 const jsx = (type, props) => ({ type, props })
 const code = ts.transpileModule(
@@ -38,6 +39,8 @@ runInNewContext(code, {
         },
       }
     if (name === "react/jsx-runtime") return { jsx, jsxs: jsx }
+    if (name === "@/components/ui/sidebar")
+      return { useSidebar: () => ({ state: sidebarState, isMobile: false }) }
     if (name === "next/navigation")
       return {
         useRouter: () => ({
@@ -98,6 +101,15 @@ assert.equal(destination, "/chats/chat-123")
 assert.equal(open, false)
 cleanup()
 assert.equal(listener, undefined)
+sidebarState = "collapsed"
+const collapsedTree = exports.ChatSearch({ chats: [] })
+const searchButton = collapsedTree.props.children[0]
+assert.equal(searchButton.props.variant, "ghost")
+assert.equal(searchButton.props.size, "icon")
+assert.equal(searchButton.props.className, undefined)
+assert.equal(searchButton.props.children[0].props["data-icon"], undefined)
+assert.equal(searchButton.props.children[1], false)
+cleanup()
 console.log(
   "Chat search shortcut, navigation, dialog closing, and listener cleanup passed."
 )
