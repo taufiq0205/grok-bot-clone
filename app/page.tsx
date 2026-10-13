@@ -1,9 +1,6 @@
 import { auth } from "@clerk/nextjs/server"
-import { PlusIcon } from "lucide-react"
-import Link from "next/link"
-
+import { BotDialog } from "@/components/bot-dialog"
 import { ChatAvatar } from "@/components/chat-avatar"
-import { Button } from "@/components/ui/button"
 import {
   Empty,
   EmptyContent,
@@ -32,16 +29,7 @@ export default async function Page() {
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent className="max-w-none">
-          <Button
-            variant="secondary"
-            size="lg"
-            className="h-auto gap-3 rounded-3xl px-6 py-4"
-            render={<Link href="/dashboard" prefetch={false} />}
-            nativeButton={false}
-          >
-            <PlusIcon data-icon="inline-start" aria-hidden="true" />
-            Create a new bot
-          </Button>
+          <BotDialog />
         </EmptyContent>
       </Empty>
     </main>

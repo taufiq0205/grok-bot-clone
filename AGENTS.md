@@ -19,6 +19,16 @@ This is a development project. There is no backwards compatibility and the data 
 
 - Apply schema changes only with `npm run db:push` (`drizzle-kit push`). Never generate or run migrations, or create migration artifacts.
 
+## Forms
+
+- Use the shadcn skill for form UI, Clerk for authentication, and Neon for database work. Reuse existing components and read the relevant skill documentation before implementation.
+- Compose forms with React Hook Form, `zodResolver`, and shadcn `FieldGroup`, `Field`, `FieldLabel`, and `FieldError`. Use `Controller` for controlled inputs and `useWatch` for reactive values.
+- Generate insert validation from the Drizzle table with `drizzle-zod`. Derive the client form schema by selecting editable fields; share validation between the form and server action. Infer types from Zod and define trimming and length limits in the schema.
+- Keep mutations in `actions/`. Authenticate each action with `await auth.protect()`, derive `userId` from Clerk, and validate untrusted input before inserting. Ownership, IDs, timestamps, and other server-managed fields must come from trusted server values or database defaults.
+- Use Base UI's `render` composition for dialog triggers and close buttons. Include a dialog title and description, associated field labels, `data-invalid` on fields, and `aria-invalid` plus linked error messages on controls. Use `ToggleGroup` for preset choices and semantic theme tokens for styling.
+- Run client-triggered server actions in a transition. Disable submission and editing while pending, preserve values on failure, show actionable errors, and close/reset only on cancel or success. Confirm success with the existing toast and revalidate affected routes.
+- Add a small check covering validation, authentication, ownership spoofing, and database failure. Run typecheck, lint, and build; report live database and authenticated browser checks separately from stubbed checks.
+
 ## DiceBear
 
 Use DiceBear 10. Documentation: https://www.dicebear.com/llms.txt
