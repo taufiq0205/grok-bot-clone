@@ -104,11 +104,7 @@ export function BotDialog() {
     >
       <DialogTrigger
         render={
-          <Button
-            variant="secondary"
-            size="lg"
-            className="h-auto gap-3 rounded-3xl px-6 py-4"
-          />
+          <Button variant="secondary" />
         }
       >
         <PlusIcon data-icon="inline-start" aria-hidden="true" />

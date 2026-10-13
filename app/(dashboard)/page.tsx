@@ -14,11 +14,11 @@ export default async function Page() {
   await auth.protect()
 
   return (
-    <main className="flex min-h-[calc(100svh-4rem)] items-center justify-center p-6">
-      <Empty className="bot-empty max-w-5xl gap-10 px-0 py-12">
-        <EmptyHeader className="max-w-4xl gap-6">
-          <EmptyMedia className="mb-10">
-            <ChatAvatar seed={crypto.randomUUID()} className="size-20" />
+    <main className="flex min-h-svh items-center justify-center p-6">
+      <Empty>
+        <EmptyHeader>
+          <EmptyMedia>
+            <ChatAvatar seed={crypto.randomUUID()} className="size-8" />
           </EmptyMedia>
           <EmptyTitle>
             <h1>Meet your first bot</h1>
@@ -28,7 +28,7 @@ export default async function Page() {
             and start the conversation.
           </EmptyDescription>
         </EmptyHeader>
-        <EmptyContent className="max-w-none">
+        <EmptyContent>
           <BotDialog />
         </EmptyContent>
       </Empty>

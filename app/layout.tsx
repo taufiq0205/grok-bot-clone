@@ -1,10 +1,4 @@
-import {
-  ClerkProvider,
-  Show,
-  SignInButton,
-  SignUpButton,
-  UserButton,
-} from "@clerk/nextjs"
+import { ClerkProvider } from "@clerk/nextjs"
 import { shadcn } from "@clerk/ui/themes"
 import { Geist, Geist_Mono } from "next/font/google"
 
@@ -13,7 +7,6 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toast"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" })
 
@@ -42,22 +35,7 @@ export default function RootLayout({
         <ClerkProvider appearance={{ theme: shadcn }}>
           <ThemeProvider>
             <TooltipProvider>
-              <Toaster>
-                <header className="flex items-center justify-end gap-2 border-b p-4">
-                  <Show when="signed-out">
-                    <SignInButton>
-                      <Button variant="outline">Sign in</Button>
-                    </SignInButton>
-                    <SignUpButton>
-                      <Button>Sign up</Button>
-                    </SignUpButton>
-                  </Show>
-                  <Show when="signed-in">
-                    <UserButton />
-                  </Show>
-                </header>
-                {children}
-              </Toaster>
+              <Toaster>{children}</Toaster>
             </TooltipProvider>
           </ThemeProvider>
         </ClerkProvider>

@@ -128,19 +128,3 @@
     @apply font-sans;
     }
 }
-
-.bot-empty [data-slot="empty-title"],
-.bot-empty [data-slot="empty-description"],
-.bot-empty [data-slot="button"] {
-  font-size: clamp(1.25rem, 3vw, 2rem);
-}
-
-.bot-empty [data-slot="empty-title"] {
-  line-height: 1.25;
-  letter-spacing: normal;
-}
-
-.bot-empty [data-slot="button"] svg {
-  width: 1em;
-  height: 1em;
-}
