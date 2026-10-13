@@ -29,7 +29,7 @@ assert.equal(schema.insertBotSchema.safeParse(valid).success, false)
 
 // Run the real action with Clerk and database boundaries stubbed.
 let authenticated = true
-let databaseFails = false
+let failingTable
 const rows = []
 const paths = []
 const dependencies = {
@@ -45,14 +45,23 @@ const dependencies = {
   "@/lib/db/schema": schema,
   "@/lib/db": {
     db: {
-      insert: (table) => {
-        assert.equal(table, schema.bots)
-        return {
-          values: async (row) => {
-            if (databaseFails) throw new Error("Database unavailable")
-            rows.push(row)
-          },
-        }
+      transaction: async (callback) => {
+        const pending = []
+        await callback({
+          insert: (table) => ({
+            values: (row) => {
+              const result = Promise.resolve().then(() => {
+                if (table === failingTable)
+                  throw new Error("Database unavailable")
+                pending.push({ table, row })
+                return [{ id: table === schema.bots ? "bot_1" : "chat_1" }]
+              })
+              result.returning = () => result
+              return result
+            },
+          }),
+        })
+        rows.push(...pending)
       },
     },
   },
@@ -84,23 +93,33 @@ assert.deepEqual(
     userId: "attacker",
     id: "injected",
     sandboxId: "injected",
+    chatId: "injected",
+    botId: "injected",
+    kind: "group",
   }),
   { success: true }
 )
 assert.deepEqual(rows, [
   {
-    name: "Ada",
-    job: "Research assistant",
-    avatar: "seed",
-    instructions: "",
-    userId: "user_1",
+    table: schema.bots,
+    row: {
+      name: "Ada",
+      job: "Research assistant",
+      avatar: "seed",
+      instructions: "",
+      userId: "user_1",
+    },
   },
+  { table: schema.chats, row: { userId: "user_1", kind: "direct" } },
+  { table: schema.chatMembers, row: { chatId: "chat_1", botId: "bot_1" } },
 ])
 assert.deepEqual(paths, ["/"])
-databaseFails = true
-assert.ok((await actions.createBot(valid)).error)
-assert.equal(rows.length, 1)
-assert.deepEqual(paths, ["/"])
+for (const table of [schema.bots, schema.chats, schema.chatMembers]) {
+  failingTable = table
+  assert.ok((await actions.createBot(valid)).error)
+  assert.equal(rows.length, 3)
+  assert.deepEqual(paths, ["/"])
+}
 console.log(
-  "Bot checks passed: validation, ownership, auth, insert, and database failure."
+  "Bot checks passed: validation, ownership, auth, linked inserts, and transaction failures."
 )
