@@ -1,26 +1,49 @@
-import { Button } from "@/components/ui/button"
+import { auth } from "@clerk/nextjs/server"
+import { PlusIcon } from "lucide-react"
 import Link from "next/link"
 
-export default function Page() {
+import { ChatAvatar } from "@/components/chat-avatar"
+import { Button } from "@/components/ui/button"
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
+
+export default async function Page() {
+  await auth.protect()
+
   return (
-    <div className="flex min-h-svh p-6">
-      <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose">
-        <div>
-          <h1 className="font-medium">Project ready!</h1>
-          <p>You may now add components and start building.</p>
-          <p>We&apos;ve already added the button component for you.</p>
+    <main className="flex min-h-[calc(100svh-4rem)] items-center justify-center p-6">
+      <Empty className="bot-empty max-w-5xl gap-10 px-0 py-12">
+        <EmptyHeader className="max-w-4xl gap-6">
+          <EmptyMedia className="mb-10">
+            <ChatAvatar seed={crypto.randomUUID()} className="size-20" />
+          </EmptyMedia>
+          <EmptyTitle>
+            <h1>Meet your first bot</h1>
+          </EmptyTitle>
+          <EmptyDescription>
+            Every bot gets its own personality, memory, and face. Spin one up
+            and start the conversation.
+          </EmptyDescription>
+        </EmptyHeader>
+        <EmptyContent className="max-w-none">
           <Button
-            className="mt-2"
+            variant="secondary"
+            size="lg"
+            className="h-auto gap-3 rounded-3xl px-6 py-4"
             render={<Link href="/dashboard" prefetch={false} />}
             nativeButton={false}
           >
-            Open dashboard
+            <PlusIcon data-icon="inline-start" aria-hidden="true" />
+            Create a new bot
           </Button>
-        </div>
-        <div className="font-mono text-xs text-muted-foreground">
-          (Press <kbd>d</kbd> to toggle dark mode)
-        </div>
-      </div>
-    </div>
+        </EmptyContent>
+      </Empty>
+    </main>
   )
 }
