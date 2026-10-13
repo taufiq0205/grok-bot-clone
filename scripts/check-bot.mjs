@@ -41,7 +41,7 @@ const dependencies = {
       },
     },
   },
-  "next/cache": { revalidatePath: (path) => paths.push(path) },
+  "next/cache": { revalidatePath: (...args) => paths.push(args) },
   "@/lib/db/schema": schema,
   "@/lib/db": {
     db: {
@@ -113,12 +113,12 @@ assert.deepEqual(rows, [
   { table: schema.chats, row: { userId: "user_1", kind: "direct" } },
   { table: schema.chatMembers, row: { chatId: "chat_1", botId: "bot_1" } },
 ])
-assert.deepEqual(paths, ["/"])
+assert.deepEqual(paths, [["/(dashboard)", "layout"]])
 for (const table of [schema.bots, schema.chats, schema.chatMembers]) {
   failingTable = table
   assert.ok((await actions.createBot(valid)).error)
   assert.equal(rows.length, 3)
-  assert.deepEqual(paths, ["/"])
+  assert.deepEqual(paths, [["/(dashboard)", "layout"]])
 }
 console.log(
   "Bot checks passed: validation, ownership, auth, linked inserts, and transaction failures."

@@ -1,19 +1,101 @@
-"use client"
-
 import { UserButton } from "@clerk/nextjs"
+import { formatDistanceToNowStrict } from "date-fns"
+import { PlusIcon, UsersIcon } from "lucide-react"
+import { BotDialog } from "@/components/bot-dialog"
+import { ChatAvatar } from "@/components/chat-avatar"
+import { getUserChats } from "@/queries/bots"
+import { Button } from "@/components/ui/button"
+import { DialogTrigger } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
-export function AppSidebar() {
+export async function AppSidebar() {
+  const chats = await getUserChats()
+
   return (
     <Sidebar>
-      <SidebarContent />
+      <SidebarHeader className="flex-row justify-end">
+        <BotDialog>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Create new chat"
+                />
+              }
+            >
+              <PlusIcon aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuGroup>
+                <DialogTrigger
+                  nativeButton={false}
+                  render={<DropdownMenuItem />}
+                  role="menuitem"
+                >
+                  <PlusIcon aria-hidden="true" />
+                  Create new bot
+                </DialogTrigger>
+                <DropdownMenuItem>
+                  <UsersIcon aria-hidden="true" />
+                  Create group chat
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </BotDialog>
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Chats</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {chats.map((chat) => (
+                <SidebarMenuItem key={chat.id}>
+                  <SidebarMenuButton size="lg" render={<div />}>
+                    <ChatAvatar seed={chat.botAvatar ?? chat.id} />
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <div className="flex items-center gap-2">
+                        <span className="min-w-0 flex-1 truncate">
+                          {chat.name ?? chat.botName ?? "Untitled chat"}
+                        </span>
+                        <time
+                          dateTime={chat.lastMessageAt.toISOString()}
+                          className="shrink-0 text-xs text-muted-foreground"
+                        >
+                          {formatDistanceToNowStrict(chat.lastMessageAt)}
+                        </time>
+                      </div>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {chat.lastMessagePreview}
+                      </span>
+                    </div>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>

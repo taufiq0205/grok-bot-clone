@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, type ReactNode } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Controller, useForm, useWatch } from "react-hook-form"
 import { PlusIcon, ShuffleIcon } from "lucide-react"
@@ -62,7 +62,7 @@ const defaults: CreateBotInput = {
   avatar: "ada",
 }
 
-export function BotDialog() {
+export function BotDialog({ children }: { children?: ReactNode }) {
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
   const form = useForm<CreateBotInput>({
@@ -102,14 +102,12 @@ export function BotDialog() {
         setOpen(nextOpen)
       }}
     >
-      <DialogTrigger
-        render={
-          <Button variant="secondary" />
-        }
-      >
-        <PlusIcon data-icon="inline-start" aria-hidden="true" />
-        Create a new bot
-      </DialogTrigger>
+      {children ?? (
+        <DialogTrigger render={<Button variant="secondary" />}>
+          <PlusIcon data-icon="inline-start" aria-hidden="true" />
+          Create a new bot
+        </DialogTrigger>
+      )}
       <DialogContent
         className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-xl"
         showCloseButton={!pending}
