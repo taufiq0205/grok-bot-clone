@@ -43,6 +43,29 @@ node scripts/check-auth.mjs
 Before production, claim the application and configure production keys using
 `npx -y clerk@latest deploy`. Temporary development keys are not production-ready.
 
+## Database
+
+Drizzle uses the existing Neon database through `pg`. Set `DATABASE_URL` (pooled)
+and `DATABASE_URL_UNPOOLED` (direct) in `.env.local`; configure these separately
+in Vercel for deployed environments. Never prefix database URLs with `NEXT_PUBLIC_`.
+
+Import `db` from `@/lib/db` in Node.js server code. Authenticate with Clerk and
+scope queries to the signed-in user before accessing private data.
+
+Define tables in `lib/db/schema.ts`, then push schema changes directly:
+
+```bash
+npm run db:push
+```
+
+`db:push` changes the database selected by `DATABASE_URL_UNPOOLED`. Review the
+proposed changes before applying them. The `todos` table has an auto-generated
+ID, title, completion status, and creation time. Use database push only; do not
+generate or run migrations.
+
+Run `npm run db:check` (Node.js 22.18+ required) for a read-only connection check,
+or `npm run db:studio` to open Drizzle Studio.
+
 ## Adding components
 
 To add components to your app, run the following command:
