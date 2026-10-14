@@ -6,7 +6,7 @@ import {
   useTriggerChatTransport,
 } from "@trigger.dev/sdk/chat/react"
 import type { TriggerChatTransport } from "@trigger.dev/sdk/chat"
-import type { UIMessage } from "ai"
+import { isToolUIPart, getToolName, type UIMessage } from "ai"
 import { useState } from "react"
 
 import {
@@ -20,6 +20,13 @@ import {
   MessageContent,
   MessageResponse,
 } from "@/components/ai-elements/message"
+import {
+  Tool,
+  ToolHeader,
+  ToolContent,
+  ToolInput,
+  ToolOutput,
+} from "@/components/ai-elements/tool"
 import {
   PromptInput,
   PromptInputBody,
@@ -101,9 +108,9 @@ function ChatView({
           {messages.map((message) => (
             <Message key={message.id} from={message.role}>
               <MessageContent>
-                {message.parts.map(
-                  (part, index) =>
-                    part.type === "text" && (
+                {message.parts.map((part, index) => {
+                  if (part.type === "text")
+                    return (
                       <MessageResponse
                         key={index}
                         isAnimating={
@@ -114,7 +121,37 @@ function ChatView({
                         {part.text}
                       </MessageResponse>
                     )
-                )}
+                  if (!isToolUIPart(part)) return null
+                  const screenshot = getToolName(part) === "viewScreen"
+                  return (
+                    <Tool key={part.toolCallId}>
+                      <ToolHeader
+                        {...(part.type === "dynamic-tool"
+                          ? {
+                              type: part.type,
+                              toolName: part.toolName,
+                              state: part.state,
+                            }
+                          : { type: part.type, state: part.state })}
+                      />
+                      <ToolContent>
+                        {part.input !== undefined && (
+                          <ToolInput input={part.input} />
+                        )}
+                        <ToolOutput
+                          output={
+                            screenshot
+                              ? part.state === "output-available"
+                                ? "Screen inspected."
+                                : undefined
+                              : part.output
+                          }
+                          errorText={part.errorText}
+                        />
+                      </ToolContent>
+                    </Tool>
+                  )
+                })}
               </MessageContent>
             </Message>
           ))}

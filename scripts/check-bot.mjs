@@ -30,6 +30,21 @@ assert.equal(
 assert.equal(schema.insertBotSchema.safeParse(valid).success, false)
 
 // Run the real action with Clerk and database boundaries stubbed.
+let sandboxFailure
+let commitFailure = false
+const sandboxCalls = []
+class DaytonaNotFoundError extends Error {}
+const sandbox = {
+  id: "sandbox_1",
+  stop: async () => {
+    sandboxCalls.push("stop")
+    if (sandboxFailure === "stop") throw new Error("Stop failed")
+  },
+  delete: async () => {
+    sandboxCalls.push("delete")
+    if (sandboxFailure === "delete") throw new Error("Delete failed")
+  },
+}
 let authenticated = true
 let failingTable
 const rows = []
@@ -47,6 +62,26 @@ const updateDb = drizzle({
   },
 })
 const dependencies = {
+  "@/lib/daytona": {
+    getDaytona: () => new dependencies["@daytona/sdk"].Daytona(),
+  },
+  "@daytona/sdk": {
+    DaytonaNotFoundError,
+    Daytona: class {
+      async create(params) {
+        assert.deepEqual(params, { autoDeleteInterval: -1 })
+        sandboxCalls.push("create")
+        if (sandboxFailure === "create") throw new Error("Create failed")
+        return sandbox
+      }
+      async get(id) {
+        assert.equal(id, "sandbox_1")
+        sandboxCalls.push("get")
+        if (sandboxFailure === "missing") throw new DaytonaNotFoundError()
+        return sandbox
+      }
+    },
+  },
   "drizzle-orm": orm,
   "@clerk/nextjs/server": {
     auth: {
@@ -64,7 +99,8 @@ const dependencies = {
       delete: (...args) => updateDb.delete(...args),
       transaction: async (callback) => {
         const pending = []
-        await callback({
+        const result = await callback({
+          delete: (...args) => updateDb.delete(...args),
           insert: (table) => ({
             values: (row) => {
               const result = Promise.resolve().then(() => {
@@ -78,7 +114,9 @@ const dependencies = {
             },
           }),
         })
+        if (commitFailure) throw new Error("Commit failed")
         rows.push(...pending)
+        return result
       },
     },
   },
@@ -104,6 +142,7 @@ assert.equal(rows.length, 0)
 authenticated = true
 assert.ok((await actions.createBot({ ...valid, name: " " })).error)
 assert.equal(rows.length, 0)
+assert.deepEqual(sandboxCalls, [])
 assert.deepEqual(
   await actions.createBot({
     ...valid,
@@ -125,20 +164,41 @@ assert.deepEqual(rows, [
       avatar: "seed",
       instructions: "",
       userId: "user_1",
+      sandboxId: "sandbox_1",
     },
   },
   { table: schema.chats, row: { userId: "user_1", kind: "direct" } },
   { table: schema.chatMembers, row: { chatId: "chat_1", botId: "bot_1" } },
 ])
 assert.deepEqual(paths, [["/(dashboard)", "layout"]])
+assert.deepEqual(sandboxCalls, ["create", "stop"])
 for (const table of [schema.bots, schema.chats, schema.chatMembers]) {
   failingTable = table
+  const before = sandboxCalls.length
   assert.ok((await actions.createBot(valid)).error)
+  assert.deepEqual(sandboxCalls.slice(before), ["create", "stop", "delete"])
   assert.equal(rows.length, 3)
   assert.deepEqual(paths, [["/(dashboard)", "layout"]])
 }
+failingTable = undefined
+for (const failure of ["create", "stop"]) {
+  sandboxFailure = failure
+  const before = sandboxCalls.length
+  assert.ok((await actions.createBot(valid)).error)
+  assert.deepEqual(
+    sandboxCalls.slice(before),
+    failure === "create" ? ["create"] : ["create", "stop", "delete"]
+  )
+  assert.equal(rows.length, 3)
+}
+sandboxFailure = undefined
+commitFailure = true
+assert.ok((await actions.createBot(valid)).error)
+assert.equal(rows.length, 3)
+assert.equal(sandboxCalls.at(-1), "delete")
+commitFailure = false
 console.log(
-  "Bot checks passed: validation, ownership, auth, linked inserts, and transaction failures."
+  "Bot checks passed: validation, ownership, auth, sandbox creation/stop, cleanup, linked inserts, and transaction failures (stubbed)."
 )
 
 authenticated = false
@@ -193,19 +253,39 @@ for (const id of [null, "", {}, 123])
   assert.ok((await actions.deleteBot(id)).error)
 assert.equal(updates.length, beforeDelete)
 updateFailure = false
-updateRows = [["bot_1"]]
+updateRows = [["bot_1", "sandbox_1"]]
+const sandboxBeforeDelete = sandboxCalls.length
 assert.deepEqual(await actions.deleteBot("bot_1"), { success: true })
 assert.match(
   updates.at(-1).text,
   /delete from "bots" where \("bots"\."id" = \$1 and "bots"\."user_id" = \$2\)/
 )
 assert.deepEqual(updates.at(-1).values, ["bot_1", "user_1"])
+assert.deepEqual(sandboxCalls.slice(sandboxBeforeDelete), ["get", "delete"])
 const deletePathCount = paths.length
+const beforeMissing = sandboxCalls.length
 updateRows = []
 assert.ok((await actions.deleteBot("other_users_bot")).error)
 updateFailure = true
 assert.ok((await actions.deleteBot("bot_1")).error)
 assert.equal(paths.length, deletePathCount)
+assert.equal(sandboxCalls.length, beforeMissing)
+updateFailure = false
+updateRows = [["bot_1", "sandbox_1"]]
+sandboxFailure = "delete"
+assert.ok((await actions.deleteBot("bot_1")).error)
+assert.equal(paths.length, deletePathCount)
+sandboxFailure = "missing"
+assert.deepEqual(await actions.deleteBot("bot_1"), { success: true })
+sandboxFailure = undefined
+commitFailure = true
+assert.ok((await actions.deleteBot("bot_1")).error)
+commitFailure = false
+assert.deepEqual(await actions.deleteBot("bot_1"), { success: true })
+updateRows = [["bot_1", null]]
+const beforeLegacy = sandboxCalls.length
+assert.deepEqual(await actions.deleteBot("bot_1"), { success: true })
+assert.equal(sandboxCalls.length, beforeLegacy)
 console.log(
-  "Delete checks passed: authentication, ID validation, ownership-scoped SQL, missing bot, and database failure (stubbed)."
+  "Delete checks passed: auth, ownership, sandbox deletion/failure, absent sandbox, commit retry, and legacy bot (stubbed)."
 )
