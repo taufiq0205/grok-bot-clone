@@ -10,8 +10,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Git
 
-- Never create branches, worktrees, or commits automatically. Only do so when the user explicitly asks for that specific action in the current request.
-- Leave changes uncommited in the working tree on the current branch and let the user decide when and how to commit.
+- Work exclusively on `main` in this working tree. Before editing files or running Git write commands, verify `git branch --show-current` returns `main`. If it does not (including detached HEAD), stop and report the mismatch; do not switch automatically.
+- Creating, switching, renaming, or deleting branches, checking out another commit, and creating worktrees require an explicit request for that specific action in the current user message. Requests to implement, fix, review, test, deploy, commit, or push do not authorize a branch change.
+- Keep all changes on `main` and leave them uncommitted unless the current user message explicitly requests a commit. Push only when explicitly requested.
+- These rules apply to every agent and override skill workflows that suggest branches or worktrees. Do not bypass them through scripts, tools, or another agent.
 
 ## Database
 
