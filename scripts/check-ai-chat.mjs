@@ -1,6 +1,8 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import ts from "typescript"
+import { configure } from "@trigger.dev/sdk"
+import { apiClientManager } from "@trigger.dev/core/v3"
 import { z } from "zod"
 
 function load(path, dependencies) {
@@ -25,6 +27,8 @@ let authenticated = true
 let owned = true
 let failure = false
 const calls = []
+const previousVercelBranch = process.env.VERCEL_GIT_COMMIT_REF
+process.env.VERCEL_GIT_COMMIT_REF = "main"
 const actions = load("../actions/chat.ts", {
   zod: { z },
   "@clerk/nextjs/server": {
@@ -41,6 +45,7 @@ const actions = load("../actions/chat.ts", {
     },
   },
   "@trigger.dev/sdk": {
+    configure,
     auth: {
       createPublicToken: async (options) => {
         calls.push(options)
@@ -62,6 +67,13 @@ const actions = load("../actions/chat.ts", {
     },
   },
 })
+assert.equal(
+  apiClientManager.branchName,
+  undefined,
+  "Vercel main must not select a Trigger preview branch"
+)
+if (previousVercelBranch === undefined) delete process.env.VERCEL_GIT_COMMIT_REF
+else process.env.VERCEL_GIT_COMMIT_REF = previousVercelBranch
 for (const action of [
   () =>
     actions.startChatSession({

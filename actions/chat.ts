@@ -1,11 +1,14 @@
 "use server"
 
 import { auth } from "@clerk/nextjs/server"
-import { auth as triggerAuth } from "@trigger.dev/sdk"
+import { auth as triggerAuth, configure } from "@trigger.dev/sdk"
 import { chat, defaultStorage } from "@trigger.dev/sdk/ai"
 import { z } from "zod"
 
 import { getChat } from "@/queries/chats"
+
+// Vercel's Git branch does not imply a Trigger.dev preview environment.
+configure({ previewBranch: process.env.TRIGGER_PREVIEW_BRANCH ?? "" })
 
 const startSession = chat.createStartSessionAction("chat-agent")
 const loadTranscript = chat.createLoadTranscriptAction(defaultStorage)
