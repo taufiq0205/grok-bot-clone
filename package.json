@@ -16,6 +16,7 @@
     "db:check": "node --conditions=react-server scripts/check-db.mjs"
   },
   "dependencies": {
+    "@ai-sdk/react": "^4.0.143",
     "@base-ui/react": "^1.9.0",
     "@clerk/nextjs": "^7.9.14",
     "@clerk/ui": "^1.40.0",
