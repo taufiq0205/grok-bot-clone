@@ -1,7 +1,12 @@
 "use client"
 
 import { useChat } from "@ai-sdk/react"
-import { DefaultChatTransport } from "ai"
+import {
+  useLoadTranscript,
+  useTriggerChatTransport,
+} from "@trigger.dev/sdk/chat/react"
+import type { TriggerChatTransport } from "@trigger.dev/sdk/chat"
+import type { UIMessage } from "ai"
 import { useState } from "react"
 
 import {
@@ -22,13 +27,69 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
 } from "@/components/ai-elements/prompt-input"
+import {
+  loadChatTranscript,
+  mintChatAccessToken,
+  startChatSession,
+} from "@/actions/chat"
+import type { chatAgent } from "@/trigger/chat"
+
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 
 export function Chat({ chatId }: { chatId: string }) {
+  const transport = useTriggerChatTransport<typeof chatAgent>({
+    task: "chat-agent",
+    accessToken: ({ chatId }) => mintChatAccessToken(chatId),
+    startSession: ({ chatId }) => startChatSession({ chatId }),
+  })
+  const { messages, isLoading, error } = useLoadTranscript(
+    chatId,
+    async (params) => {
+      const transcript = await loadChatTranscript(params)
+      if (transcript.messages.length > 0) await transport.start(chatId)
+      return transcript
+    },
+    { transport }
+  )
+  if (isLoading)
+    return (
+      <p role="status" className="p-4">
+        Loading messages…
+      </p>
+    )
+  if (error)
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>
+          Could not load messages. Please reload to try again.
+        </AlertDescription>
+      </Alert>
+    )
+  return (
+    <ChatView
+      chatId={chatId}
+      initialMessages={messages}
+      transport={transport}
+    />
+  )
+}
+
+function ChatView({
+  chatId,
+  initialMessages,
+  transport,
+}: {
+  chatId: string
+  initialMessages: UIMessage[]
+  transport: TriggerChatTransport
+}) {
   const [text, setText] = useState("")
   const { messages, sendMessage, status, error, regenerate, stop } = useChat({
-    transport: new DefaultChatTransport({ api: `/api/chats/${chatId}` }),
+    id: chatId,
+    messages: initialMessages,
+    transport,
+    resume: initialMessages.length > 0,
   })
   const pending = status === "submitted" || status === "streaming"
 
@@ -98,7 +159,10 @@ export function Chat({ chatId }: { chatId: string }) {
           <PromptInputFooter className="justify-end">
             <PromptInputSubmit
               status={status}
-              onStop={() => void stop()}
+              onStop={() => {
+                void stop()
+                void transport.stopGeneration(chatId)
+              }}
               disabled={!pending && !text.trim()}
             />
           </PromptInputFooter>
