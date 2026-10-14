@@ -31,3 +31,37 @@ export async function getUserChats() {
     .where(eq(chats.userId, userId))
     .orderBy(desc(chats.lastMessageAt), asc(chats.id))
 }
+
+export async function getChat(chatId: string) {
+  const { userId } = await auth.protect()
+  const firstBot = db
+    .select({
+      id: bots.id,
+      name: bots.name,
+      avatar: bots.avatar,
+      job: bots.job,
+      instructions: bots.instructions,
+    })
+    .from(chatMembers)
+    .innerJoin(bots, eq(chatMembers.botId, bots.id))
+    .where(and(eq(chatMembers.chatId, chats.id), eq(bots.userId, userId)))
+    .orderBy(asc(chatMembers.joinedAt), asc(bots.id))
+    .limit(1)
+    .as("first_bot")
+
+  const [chat] = await db
+    .select({
+      id: chats.id,
+      botId: firstBot.id,
+      botJob: firstBot.job,
+      botInstructions: firstBot.instructions,
+      botName: firstBot.name,
+      botAvatar: firstBot.avatar,
+    })
+    .from(chats)
+    .leftJoinLateral(firstBot, eq(chats.userId, userId))
+    .where(and(eq(chats.id, chatId), eq(chats.userId, userId)))
+    .limit(1)
+
+  return chat
+}

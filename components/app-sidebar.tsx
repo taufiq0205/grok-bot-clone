@@ -1,11 +1,11 @@
 import { UserButton } from "@clerk/nextjs"
 import { formatDistanceToNowStrict } from "date-fns"
 import { PlusIcon, UsersIcon } from "lucide-react"
-import Link from "next/link"
 import { BotDialog } from "@/components/bot-dialog"
 import { ChatAvatar } from "@/components/chat-avatar"
 import { ChatSearch } from "@/components/chat-search"
-import { getUserChats } from "@/queries/bots"
+import { ChatSidebarButton } from "@/components/chat-sidebar-button"
+import { getUserChats } from "@/queries/chats"
 import { Button } from "@/components/ui/button"
 import { DialogTrigger } from "@/components/ui/dialog"
 import {
@@ -83,12 +83,9 @@ export async function AppSidebar() {
             <SidebarMenu>
               {chats.map((chat) => (
                 <SidebarMenuItem key={chat.id}>
-                  <SidebarMenuButton
-                    size="lg"
-                    className="group-data-[collapsible=icon]:justify-center"
-                    aria-label={chat.name ?? chat.botName ?? "Untitled chat"}
-                    tooltip={chat.name ?? chat.botName ?? "Untitled chat"}
-                    render={<Link href={`/chats/${chat.id}`} />}
+                  <ChatSidebarButton
+                    chatId={chat.id}
+                    name={chat.name ?? chat.botName ?? "Untitled chat"}
                   >
                     <ChatAvatar
                       seed={chat.botAvatar ?? chat.id}
@@ -110,7 +107,7 @@ export async function AppSidebar() {
                         {chat.lastMessagePreview}
                       </span>
                     </div>
-                  </SidebarMenuButton>
+                  </ChatSidebarButton>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

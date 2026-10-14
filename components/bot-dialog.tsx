@@ -5,8 +5,19 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Controller, useForm, useWatch } from "react-hook-form"
 import { PlusIcon, ShuffleIcon } from "lucide-react"
 
-import { createBot } from "@/actions/bot"
+import { createBot, updateBot, deleteBot } from "@/actions/bot"
 import { ChatAvatar } from "@/components/chat-avatar"
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -62,32 +73,67 @@ const defaults: CreateBotInput = {
   avatar: "ada",
 }
 
-export function BotDialog({ children }: { children?: ReactNode }) {
+export function BotDialog({
+  children,
+  bot,
+}: {
+  children?: ReactNode
+  bot?: CreateBotInput & { id: string }
+}) {
   const [open, setOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteError, setDeleteError] = useState<string>()
   const [pending, startTransition] = useTransition()
   const form = useForm<CreateBotInput>({
     resolver: zodResolver(createBotSchema),
-    defaultValues: defaults,
+    defaultValues: bot ?? defaults,
   })
   const [avatar, job] = useWatch({
     control: form.control,
     name: ["avatar", "job"],
   })
 
+  function onDelete() {
+    if (!bot) return
+    setDeleteError(undefined)
+    startTransition(async () => {
+      try {
+        const result = await deleteBot(bot.id)
+        if (result.error) {
+          setDeleteError(result.error)
+          return
+        }
+        setConfirmDelete(false)
+        setOpen(false)
+        form.reset()
+        toast.add({ title: `${bot.name} deleted.`, type: "success" })
+      } catch {
+        setDeleteError("Could not delete your bot. Please try again.")
+      }
+    })
+  }
+
   function onSubmit(values: CreateBotInput) {
     form.clearErrors("root")
     startTransition(async () => {
       try {
-        const result = await createBot(values)
+        const result = bot
+          ? await updateBot(bot.id, values)
+          : await createBot(values)
         if (result.error) {
           form.setError("root", { message: result.error })
           return
         }
         setOpen(false)
-        toast.add({ title: `${values.name} is ready.`, type: "success" })
+        toast.add({
+          title: bot ? `${values.name} updated.` : `${values.name} is ready.`,
+          type: "success",
+        })
       } catch {
         form.setError("root", {
-          message: "Could not create your bot. Please try again.",
+          message: bot
+            ? "Could not update your bot. Please try again."
+            : "Could not create your bot. Please try again.",
         })
       }
     })
@@ -98,7 +144,7 @@ export function BotDialog({ children }: { children?: ReactNode }) {
       open={open}
       onOpenChange={(nextOpen) => {
         if (pending) return
-        if (nextOpen) form.reset({ ...defaults, avatar: crypto.randomUUID() })
+        form.reset(bot ?? { ...defaults, avatar: crypto.randomUUID() })
         setOpen(nextOpen)
       }}
     >
@@ -113,9 +159,11 @@ export function BotDialog({ children }: { children?: ReactNode }) {
         showCloseButton={!pending}
       >
         <DialogHeader>
-          <DialogTitle>New bot</DialogTitle>
+          <DialogTitle>{bot ? "Edit bot" : "New bot"}</DialogTitle>
           <DialogDescription>
-            Give it a face, a name, and a job to do.
+            {bot
+              ? "Update its face, name, and how it should work."
+              : "Give it a face, a name, and a job to do."}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -253,6 +301,57 @@ export function BotDialog({ children }: { children?: ReactNode }) {
           </FieldGroup>
           <FieldError errors={[form.formState.errors.root]} />
           <DialogFooter>
+            {bot && (
+              <AlertDialog
+                open={confirmDelete}
+                onOpenChange={(nextOpen) => {
+                  if (pending) return
+                  setDeleteError(undefined)
+                  setConfirmDelete(nextOpen)
+                }}
+              >
+                <AlertDialogTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      disabled={pending}
+                    />
+                  }
+                  className="sm:mr-auto"
+                >
+                  Delete bot
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete {bot.name}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This permanently deletes the bot and removes it from all
+                      chats. Chats remain. This cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  {deleteError && (
+                    <p role="alert" className="text-sm text-destructive">
+                      {deleteError}
+                    </p>
+                  )}
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={pending}>
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      type="button"
+                      variant="destructive"
+                      disabled={pending}
+                      onClick={onDelete}
+                    >
+                      {pending && <Spinner data-icon="inline-start" />}
+                      {pending ? "Deleting…" : "Delete bot"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
             <DialogClose
               render={
                 <Button type="button" variant="outline" disabled={pending} />
@@ -262,7 +361,13 @@ export function BotDialog({ children }: { children?: ReactNode }) {
             </DialogClose>
             <Button type="submit" disabled={pending}>
               {pending && <Spinner data-icon="inline-start" />}
-              {pending ? "Creating…" : "Create bot"}
+              {bot
+                ? pending
+                  ? "Saving…"
+                  : "Save changes"
+                : pending
+                  ? "Creating…"
+                  : "Create bot"}
             </Button>
           </DialogFooter>
         </form>

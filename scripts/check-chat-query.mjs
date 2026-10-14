@@ -40,7 +40,7 @@ const dependencies = {
   },
 }
 const compiled = ts.transpileModule(
-  readFileSync(new URL("../queries/bots.ts", import.meta.url), "utf8"),
+  readFileSync(new URL("../queries/chats.ts", import.meta.url), "utf8"),
   {
     compilerOptions: {
       module: ts.ModuleKind.CommonJS,
