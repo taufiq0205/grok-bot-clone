@@ -1,3 +1,5 @@
+"use client"
+
 import { MonitorIcon } from "lucide-react"
 
 import { BotDialog } from "@/components/bot-dialog"
@@ -5,14 +7,17 @@ import { DialogTrigger } from "@/components/ui/dialog"
 import type { getChat } from "@/queries/chats"
 import { ChatAvatar } from "@/components/chat-avatar"
 import { Button } from "@/components/ui/button"
+import { useChatDesktop } from "@/components/chat-desktop"
 
 export function ChatHeader({
   chat,
 }: {
   chat: NonNullable<Awaited<ReturnType<typeof getChat>>>
 }) {
+  const { panelRef, panelId, open } = useChatDesktop()
+
   return (
-    <header className="flex h-10 items-center gap-2 border-b px-4">
+    <header className="flex h-10 shrink-0 items-center gap-2 border-b px-4">
       <h1 className="min-w-0 flex-1">
         {chat.botId ? (
           <BotDialog
@@ -40,7 +45,19 @@ export function ChatHeader({
           "Untitled chat"
         )}
       </h1>
-      <Button type="button" variant="ghost" size="icon" aria-label="Desktop">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label="Desktop"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => {
+          const panel = panelRef.current
+          if (panel?.isCollapsed()) panel.expand()
+          else panel?.collapse()
+        }}
+      >
         <MonitorIcon aria-hidden="true" />
       </Button>
     </header>

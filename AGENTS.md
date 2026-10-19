@@ -74,6 +74,11 @@ Only JavaScript and the HTTP API have a pre-10 form. The other six cores were
 released in 2026 and never had one, so any older-looking PHP, Python, Rust, Go,
 Dart or C# API attributed to DiceBear is invented rather than outdated.
 
+## Deployment environment variables
+
+- `TRIGGER_SECRET_KEY` is environment-specific. Local development uses the development key; Vercel Production requires the Trigger.dev production environment's secret key. Never copy the local development key into Production or Preview.
+- Preserve existing deployed Trigger keys during environment sync. If a deployed key is missing, obtain the key for the intended Trigger environment before deploying; do not substitute the local key.
+
 <!-- TRIGGER.DEV SKILLS START -->
 ## Trigger.dev agent skills
 

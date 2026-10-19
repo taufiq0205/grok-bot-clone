@@ -101,8 +101,8 @@ function ChatView({
   const pending = status === "submitted" || status === "streaming"
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <Conversation>
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <Conversation className="min-h-0 overflow-x-hidden">
         <ConversationContent className="mx-auto w-full max-w-3xl">
           {messages.length === 0 && <ConversationEmptyState />}
           {messages.map((message) => (
@@ -163,7 +163,7 @@ function ChatView({
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 p-4">
+      <div className="mx-auto flex w-full max-w-3xl shrink-0 flex-col gap-3 p-4">
         {error && (
           <Alert variant="destructive">
             <AlertDescription>

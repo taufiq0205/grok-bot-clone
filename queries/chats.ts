@@ -41,6 +41,7 @@ export async function getChat(chatId: string) {
       avatar: bots.avatar,
       job: bots.job,
       instructions: bots.instructions,
+      sandboxId: bots.sandboxId,
     })
     .from(chatMembers)
     .innerJoin(bots, eq(chatMembers.botId, bots.id))
@@ -55,6 +56,7 @@ export async function getChat(chatId: string) {
       botId: firstBot.id,
       botJob: firstBot.job,
       botInstructions: firstBot.instructions,
+      botSandboxId: firstBot.sandboxId,
       botName: firstBot.name,
       botAvatar: firstBot.avatar,
     })

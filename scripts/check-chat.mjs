@@ -7,7 +7,9 @@ import * as schema from "../lib/db/schema.ts"
 
 let authenticated = true
 let failure = false
-let rows = [["chat_1", "bot_1", "Writer", "Be brief", "Quill", "avatar_1"]]
+let rows = [
+  ["chat_1", "bot_1", "Writer", "Be brief", "sandbox_1", "Quill", "avatar_1"],
+]
 const requests = []
 const db = drizzle({
   client: {
@@ -51,6 +53,7 @@ assert.deepEqual(await queries.getChat("chat_1"), {
   botId: "bot_1",
   botJob: "Writer",
   botInstructions: "Be brief",
+  botSandboxId: "sandbox_1",
   botName: "Quill",
   botAvatar: "avatar_1",
 })
