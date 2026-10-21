@@ -191,13 +191,16 @@ export function createSandboxTools(resolveSandbox: () => Promise<Sandbox>) {
     }),
     viewScreen: tool({
       description:
-        "Inspect the current desktop screenshot. Images are for your visual context and are never displayed in chat.",
-      inputSchema: z.object({}),
-      execute: (_, options) =>
+        "Inspect the current desktop screenshot. Set showInChat to true when the user asks to see the screen or an image helps explain the result. Leave it false for routine internal inspection.",
+      inputSchema: z.object({ showInChat: z.boolean().default(false) }),
+      execute: ({ showInChat = false }, options) =>
         run(
           async (sandbox) => {
             const result = await sandbox.computerUse.screenshot.takeFullScreen()
-            return { screenshot: z.string().min(1).parse(result.screenshot) }
+            return {
+              screenshot: z.string().min(1).parse(result.screenshot),
+              showInChat,
+            }
           },
           options,
           true

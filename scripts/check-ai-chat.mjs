@@ -194,6 +194,7 @@ try {
     /Additional bot instructions:\nBe concise\./
   )
   assert.match(result.instructions, /sandbox tools/)
+  assert.match(result.instructions, /showInChat: true/)
   assert.equal(result.tools, resolvedTools)
   assert.ok(result.tools.viewScreen.toModelOutput)
   assert.equal(typeof result.stopWhen, "function")
@@ -270,6 +271,13 @@ const renderedMessages = [
         output: { screenshot: "SECRET_SCREENSHOT_BYTES" },
       },
       {
+        type: "tool-viewScreen",
+        toolCallId: "shared_screen",
+        state: "output-available",
+        input: { showInChat: true },
+        output: { screenshot: "SHARED_SCREENSHOT_BYTES", showInChat: true },
+      },
+      {
         type: "dynamic-tool",
         toolName: "readFile",
         toolCallId: "read_1",
@@ -287,6 +295,12 @@ const renderedMessages = [
 ]
 const { Chat } = load("../components/chat.tsx", {
   "react/jsx-runtime": jsxRuntime,
+  "next/image": {
+    default: ({ unoptimized, ...props }) => {
+      assert.equal(unoptimized, true)
+      return React.createElement("img", props)
+    },
+  },
   react: React,
   ai: { isToolUIPart, getToolName },
   "@ai-sdk/react": {
@@ -337,6 +351,8 @@ assert.match(markup, /home\/test/)
 assert.match(markup, /Screen inspected/)
 assert.match(markup, /Sandbox operation failed/)
 assert.doesNotMatch(markup, /SECRET_SCREENSHOT_BYTES/)
+assert.match(markup, /src="data:image\/png;base64,SHARED_SCREENSHOT_BYTES"/)
+assert.match(markup, /alt="Agent desktop screenshot"/)
 console.log(
-  "Chat render checks passed: text, static/dynamic tool calls, pending/errors, and screenshots excluded (stubbed UI boundaries)."
+  "Chat render checks passed: text, static/dynamic tool calls, pending/errors, and selective screenshot display (stubbed UI boundaries)."
 )

@@ -14,7 +14,9 @@ export async function connectDesktop(chatId: unknown) {
   try {
     const chat = await getChat(id.data)
     if (!chat?.botSandboxId)
-      return { error: "No desktop is available for this chat." }
+      return {
+        error: "This bot has no desktop. Create a new bot to get a desktop.",
+      }
     const sandbox = await getDaytona().get(chat.botSandboxId)
     if (["stopped", "archived", "paused"].includes(sandbox.state ?? ""))
       await sandbox.start()

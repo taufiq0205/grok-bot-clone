@@ -47,7 +47,13 @@ export function SandboxDesktop({
           import("@novnc/novnc"),
         ])
         if (disposed) return
-        if (!result.url) throw new Error(result.error)
+        if (!result.url) {
+          setStatus("error")
+          setError(
+            result.error ?? "Could not connect to the desktop. Please retry."
+          )
+          return
+        }
         connection = new RFB(host, result.url)
         client.current = connection
         connection.scaleViewport = true

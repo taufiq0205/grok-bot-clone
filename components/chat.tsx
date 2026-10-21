@@ -8,6 +8,7 @@ import {
 import type { TriggerChatTransport } from "@trigger.dev/sdk/chat"
 import { isToolUIPart, getToolName, type UIMessage } from "ai"
 import { useState } from "react"
+import Image from "next/image"
 
 import {
   Conversation,
@@ -123,6 +124,28 @@ function ChatView({
                     )
                   if (!isToolUIPart(part)) return null
                   const screenshot = getToolName(part) === "viewScreen"
+                  const output =
+                    screenshot && part.state === "output-available"
+                      ? (part.output as {
+                          screenshot?: unknown
+                          showInChat?: unknown
+                        })
+                      : undefined
+                  if (
+                    output?.showInChat === true &&
+                    typeof output.screenshot === "string"
+                  )
+                    return (
+                      <Image
+                        key={part.toolCallId}
+                        src={`data:image/png;base64,${output.screenshot}`}
+                        alt="Agent desktop screenshot"
+                        width={1280}
+                        height={720}
+                        unoptimized
+                        className="h-auto max-w-full rounded-md border"
+                      />
+                    )
                   return (
                     <Tool key={part.toolCallId}>
                       <ToolHeader

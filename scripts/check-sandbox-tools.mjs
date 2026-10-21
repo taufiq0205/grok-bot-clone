@@ -114,6 +114,15 @@ assert.deepEqual(calls.slice(-6), [
 assert.equal(resolutions, 1)
 assert.equal(calls.filter(([name]) => name === "desktop").length, 1)
 const output = await tools.viewScreen.execute({}, options)
+assert.equal(output.showInChat, false)
+const shared = await tools.viewScreen.execute({ showInChat: true }, options)
+assert.equal(shared.showInChat, true)
+assert.equal(shared.screenshot, output.screenshot)
+assert.equal(tools.viewScreen.inputSchema.parse({}).showInChat, false)
+assert.equal(
+  tools.viewScreen.inputSchema.safeParse({ showInChat: "yes" }).success,
+  false
+)
 const modelOutput = await tools.viewScreen.toModelOutput({
   output,
   input: {},

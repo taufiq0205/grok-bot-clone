@@ -85,6 +85,7 @@ assert.deepEqual(await connectDesktop("chat_1"), {
   error: "Could not connect to the desktop. Please retry.",
 })
 
+let desktopResult = { url: "wss://signed.test/websockify" }
 const refs = []
 const effects = []
 const setters = []
@@ -120,7 +121,7 @@ const { SandboxDesktop } = load("../components/sandbox-desktop.tsx", {
     },
   },
   "@/actions/desktop": {
-    connectDesktop: async () => ({ url: "wss://signed.test/websockify" }),
+    connectDesktop: async () => desktopResult,
   },
   "@novnc/novnc": {
     default: class {
@@ -195,6 +196,25 @@ try {
   assert.equal(connection.disconnected, false)
   cleanup()
   assert.equal(connection.disconnected, true)
+
+  fail = false
+  chat = { botSandboxId: null }
+  desktopResult = await connectDesktop("chat_1")
+  assert.equal(
+    desktopResult.error,
+    "This bot has no desktop. Create a new bot to get a desktop."
+  )
+  refs.length = 0
+  effects.length = 0
+  setters.length = 0
+  SandboxDesktop({ chatId: "chat_1", name: "Fe test" })
+  refs[0].current = destination()
+  const cleanupMissing = effects[0]()
+  await new Promise(setImmediate)
+  assert.deepEqual(setters[1], ["error"])
+  assert.deepEqual(setters[2], [desktopResult.error])
+  assert.equal(connections.length, 1)
+  cleanupMissing()
 } finally {
   if (originalDocument === undefined) delete globalThis.document
   else globalThis.document = originalDocument

@@ -47,7 +47,9 @@ Before production, claim the application and configure production keys using
 
 Drizzle uses the existing Neon database through `pg`. Set `DATABASE_URL` (pooled)
 and `DATABASE_URL_UNPOOLED` (direct) in `.env.local`; configure these separately
-in Vercel for deployed environments. Never prefix database URLs with `NEXT_PUBLIC_`.
+in Vercel for deployed environments. Use `sslmode=verify-full` in both URLs to
+verify the server certificate and hostname without SSL mode deprecation warnings.
+Never prefix database URLs with `NEXT_PUBLIC_`.
 
 Import `db` from `@/lib/db` in Node.js server code. Authenticate with Clerk and
 scope queries to the signed-in user before accessing private data.
