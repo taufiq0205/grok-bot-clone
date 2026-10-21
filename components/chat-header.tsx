@@ -1,5 +1,6 @@
 "use client"
 
+import { GroupChatAvatar } from "@/components/group-chat-avatar"
 import { MonitorIcon } from "lucide-react"
 
 import { BotDialog } from "@/components/bot-dialog"
@@ -19,7 +20,12 @@ export function ChatHeader({
   return (
     <header className="flex h-10 shrink-0 items-center gap-2 border-b px-4">
       <h1 className="min-w-0 flex-1">
-        {chat.botId ? (
+        {chat.kind === "group" ? (
+          <span className="flex items-center gap-2 px-2.5 text-sm font-medium">
+            <GroupChatAvatar members={chat.members} className="size-5" />
+            <span className="truncate">{chat.name}</span>
+          </span>
+        ) : chat.botId ? (
           <BotDialog
             bot={{
               id: chat.botId,
@@ -45,21 +51,23 @@ export function ChatHeader({
           "Untitled chat"
         )}
       </h1>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        aria-label="Desktop"
-        aria-expanded={open}
-        aria-controls={panelId}
-        onClick={() => {
-          const panel = panelRef.current
-          if (panel?.isCollapsed()) panel.expand()
-          else panel?.collapse()
-        }}
-      >
-        <MonitorIcon aria-hidden="true" />
-      </Button>
+      {chat.kind === "direct" && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Desktop"
+          aria-expanded={open}
+          aria-controls={panelId}
+          onClick={() => {
+            const panel = panelRef.current
+            if (panel?.isCollapsed()) panel.expand()
+            else panel?.collapse()
+          }}
+        >
+          <MonitorIcon aria-hidden="true" />
+        </Button>
+      )}
     </header>
   )
 }

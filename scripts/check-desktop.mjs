@@ -69,6 +69,10 @@ chat = undefined
 assert.ok((await connectDesktop("other_users_chat")).error)
 assert.deepEqual(calls, [["authorize", "other_users_chat"]])
 calls.length = 0
+chat = { kind: "group", botSandboxId: "owned_sandbox" }
+assert.ok((await connectDesktop("group_1")).error)
+assert.deepEqual(calls, [["authorize", "group_1"]])
+calls.length = 0
 chat = { botSandboxId: "owned_sandbox" }
 assert.deepEqual(await connectDesktop("chat_1"), {
   url: "wss://6080-signed.example.test/websockify",

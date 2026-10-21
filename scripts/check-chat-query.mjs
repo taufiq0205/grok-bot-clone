@@ -63,7 +63,7 @@ assert.match(sql, /where "chats"\."user_id" = \$\d/)
 assert.match(sql, /left join lateral/)
 assert.match(sql, /"chat_members"\."joined_at" asc/)
 assert.match(sql, /order by "chats"\."last_message_at" desc/)
-assert.equal(params.filter((value) => value === "user_1").length, 3)
+assert.equal(params.filter((value) => value === "user_1").length, 4)
 assert.ok(!params.includes("attacker"))
 console.log(
   "Chat query checks passed: auth, user scope, bot ownership, first bot, and ordering (no database connection)."

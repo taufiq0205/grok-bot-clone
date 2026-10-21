@@ -23,6 +23,16 @@ export default async function Page({
 
   if (!chat) notFound()
 
+  if (chat.kind === "group")
+    return (
+      <ChatDesktopProvider key={chatId}>
+        <div className="flex h-dvh min-h-0 min-w-0 flex-col overflow-hidden">
+          <ChatHeader chat={chat} />
+          <Chat key={chatId} chatId={chatId} members={chat.members} />
+        </div>
+      </ChatDesktopProvider>
+    )
+
   return (
     <ChatDesktopProvider key={chatId}>
       <div className="h-dvh min-w-0 overflow-hidden">

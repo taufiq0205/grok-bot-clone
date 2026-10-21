@@ -119,6 +119,7 @@ assert.deepEqual(calls, [
 
 let rows = [
   {
+    kind: "direct",
     name: "Ada",
     job: "Research assistant",
     instructions: "Be concise.",
@@ -141,7 +142,13 @@ const { chatAgent } = load("../trigger/chat.ts", {
     }),
   },
   "@ai-sdk/deepseek": { deepSeek: (model) => model },
-  "@trigger.dev/sdk/ai": { chat: { agent: (config) => config } },
+  "@trigger.dev/sdk/ai": {
+    chat: {
+      withClientData: ({ schema }) => ({
+        agent: (config) => ({ ...config, clientDataSchema: schema }),
+      }),
+    },
+  },
   pg: {
     Pool: class {
       on() {}
@@ -201,8 +208,8 @@ try {
   assert.equal(result.model, "deepseek-flash")
   assert.equal(result.abortSignal, signal)
   assert.deepEqual(result.messages, messages)
-  assert.deepEqual(queries[0].values, ["chat_1"])
-  rows = [{ instructions: null }]
+  assert.deepEqual(queries[0].values, ["chat_1", null])
+  rows = [{ kind: "direct", instructions: null }]
   const fallback = await run()
   assert.match(
     fallback.instructions,
@@ -210,7 +217,15 @@ try {
   )
   assert.match(fallback.instructions, /No sandbox is associated/)
   assert.doesNotMatch(fallback.instructions, /Additional bot instructions/)
-  rows = [{ name: "Grace", job: "Writer", instructions: "", sandboxId: null }]
+  rows = [
+    {
+      kind: "direct",
+      name: "Grace",
+      job: "Writer",
+      instructions: "",
+      sandboxId: null,
+    },
+  ]
   assert.match((await run()).instructions, /"name":"Grace","job":"Writer"/)
   assert.match(queries[0].sql, /b\.user_id = c\.user_id/)
   assert.match(queries[0].sql, /b\.sandbox_id AS "sandboxId"/)
@@ -220,6 +235,33 @@ try {
   assert.deepEqual(sandboxIds, ["owned_sandbox"])
   assert.match(queries.at(-1).sql, /b\.user_id = c\.user_id/)
   assert.deepEqual(queries.at(-1).values, ["chat_1"])
+  for (const [id, name] of [
+    ["bot_1", "Ada"],
+    ["bot_2", "Grace"],
+  ]) {
+    rows = [
+      { kind: "group", name, job: "Writer", sandboxId: "ignored_sandbox" },
+    ]
+    const group = await chatAgent.run({
+      chatId: "group_1",
+      clientData: { botId: id },
+      messages,
+      tools: resolvedTools,
+      signal,
+      streamText: (options) => options,
+    })
+    assert.deepEqual(group.tools, {})
+    assert.match(group.instructions, new RegExp(name))
+    assert.match(group.instructions, /No sandbox is associated/)
+    assert.deepEqual(queries.at(-1).values, ["group_1", id])
+    assert.match(queries.at(-1).sql, /c.kind = 'direct' OR b.id = \$2/)
+  }
+  rows = [{ kind: "group", name: null }]
+  await assert.rejects(run(), /Select a bot/)
+  assert.equal(
+    chatAgent.clientDataSchema.safeParse({ botId: 12 }).success,
+    false
+  )
   rows = []
   const missingTools = chatAgent.tools({ chatId: "missing_chat" })
   await assert.rejects(
@@ -293,6 +335,7 @@ const renderedMessages = [
     ],
   },
 ]
+let transportClientData
 const { Chat } = load("../components/chat.tsx", {
   "react/jsx-runtime": jsxRuntime,
   "next/image": {
@@ -302,12 +345,18 @@ const { Chat } = load("../components/chat.tsx", {
     },
   },
   react: React,
+  "@/components/chat-avatar": { ChatAvatar: wrapper },
+  "@/components/ui/dropdown-menu": primitives(["DropdownMenuGroup"]),
+  "lucide-react": primitives(["ChevronDownIcon"]),
   ai: { isToolUIPart, getToolName },
   "@ai-sdk/react": {
     useChat: () => ({ messages: renderedMessages, status: "ready" }),
   },
   "@trigger.dev/sdk/chat/react": {
-    useTriggerChatTransport: () => ({}),
+    useTriggerChatTransport: (options) => {
+      transportClientData = options.clientData
+      return {}
+    },
     useLoadTranscript: () => ({ messages: renderedMessages, isLoading: false }),
   },
   "@/actions/chat": {},
@@ -323,6 +372,10 @@ const { Chat } = load("../components/chat.tsx", {
     "MessageResponse",
   ]),
   "@/components/ai-elements/prompt-input": primitives([
+    "PromptInputActionMenu",
+    "PromptInputActionMenuTrigger",
+    "PromptInputActionMenuContent",
+    "PromptInputActionMenuItem",
     "PromptInput",
     "PromptInputBody",
     "PromptInputFooter",
@@ -355,4 +408,20 @@ assert.match(markup, /src="data:image\/png;base64,SHARED_SCREENSHOT_BYTES"/)
 assert.match(markup, /alt="Agent desktop screenshot"/)
 console.log(
   "Chat render checks passed: text, static/dynamic tool calls, pending/errors, and selective screenshot display (stubbed UI boundaries)."
+)
+
+const groupMarkup = renderToStaticMarkup(
+  React.createElement(Chat, {
+    chatId: "group_1",
+    members: [
+      { id: "bot_1", name: "Ada", avatar: "ada" },
+      { id: "bot_2", name: "Grace", avatar: "grace" },
+    ],
+  })
+)
+assert.deepEqual(transportClientData, { botId: "bot_1" })
+assert.match(groupMarkup, /Ada/)
+assert.match(groupMarkup, /Grace/)
+console.log(
+  "Group composer renders bot choices and sends the selected bot through transport clientData."
 )

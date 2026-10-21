@@ -1,10 +1,28 @@
 import "server-only"
 
 import { auth } from "@clerk/nextjs/server"
-import { and, asc, desc, eq } from "drizzle-orm"
+import { and, asc, desc, eq, sql } from "drizzle-orm"
 
 import { db } from "@/lib/db"
 import { bots, chatMembers, chats } from "@/lib/db/schema"
+
+export type ChatBot = { id: string; name: string; avatar: string }
+
+const members = (userId: string) => sql<ChatBot[]>`coalesce((
+  select jsonb_agg(jsonb_build_object('id', b.id, 'name', b.name, 'avatar', b.avatar)
+    order by m.joined_at, b.id)
+  from chat_members m join bots b on b.id = m.bot_id
+  where m.chat_id = ${chats.id} and b.user_id = ${userId}
+), '[]'::jsonb)`
+
+export async function getUserBots() {
+  const { userId } = await auth.protect()
+  return db
+    .select({ id: bots.id, name: bots.name, avatar: bots.avatar })
+    .from(bots)
+    .where(eq(bots.userId, userId))
+    .orderBy(asc(bots.name), asc(bots.id))
+}
 
 export async function getUserChats() {
   const { userId } = await auth.protect()
@@ -20,6 +38,8 @@ export async function getUserChats() {
   return db
     .select({
       id: chats.id,
+      kind: chats.kind,
+      members: members(userId),
       name: chats.name,
       lastMessagePreview: chats.lastMessagePreview,
       lastMessageAt: chats.lastMessageAt,
@@ -53,6 +73,9 @@ export async function getChat(chatId: string) {
   const [chat] = await db
     .select({
       id: chats.id,
+      kind: chats.kind,
+      members: members(userId),
+      name: chats.name,
       botId: firstBot.id,
       botJob: firstBot.job,
       botInstructions: firstBot.instructions,

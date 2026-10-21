@@ -7,6 +7,10 @@ import {
 } from "@trigger.dev/sdk/chat/react"
 import type { TriggerChatTransport } from "@trigger.dev/sdk/chat"
 import { isToolUIPart, getToolName, type UIMessage } from "ai"
+import { ChatAvatar } from "@/components/chat-avatar"
+import type { ChatBot } from "@/queries/chats"
+import { DropdownMenuGroup } from "@/components/ui/dropdown-menu"
+import { ChevronDownIcon } from "lucide-react"
 import { useState } from "react"
 import Image from "next/image"
 
@@ -30,6 +34,10 @@ import {
 } from "@/components/ai-elements/tool"
 import {
   PromptInput,
+  PromptInputActionMenu,
+  PromptInputActionMenuTrigger,
+  PromptInputActionMenuContent,
+  PromptInputActionMenuItem,
   PromptInputBody,
   PromptInputFooter,
   PromptInputSubmit,
@@ -45,9 +53,17 @@ import type { chatAgent } from "@/trigger/chat"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 
-export function Chat({ chatId }: { chatId: string }) {
+export function Chat({
+  chatId,
+  members,
+}: {
+  chatId: string
+  members?: ChatBot[]
+}) {
+  const [botId, setBotId] = useState(members?.[0]?.id)
   const transport = useTriggerChatTransport<typeof chatAgent>({
     task: "chat-agent",
+    clientData: { botId },
     accessToken: ({ chatId }) => mintChatAccessToken(chatId),
     startSession: ({ chatId }) => startChatSession({ chatId }),
   })
@@ -77,6 +93,9 @@ export function Chat({ chatId }: { chatId: string }) {
   return (
     <ChatView
       chatId={chatId}
+      members={members}
+      botId={botId}
+      onBotChange={setBotId}
       initialMessages={messages}
       transport={transport}
     />
@@ -85,10 +104,16 @@ export function Chat({ chatId }: { chatId: string }) {
 
 function ChatView({
   chatId,
+  members,
+  botId,
+  onBotChange,
   initialMessages,
   transport,
 }: {
   chatId: string
+  members?: ChatBot[]
+  botId?: string
+  onBotChange: (id: string) => void
   initialMessages: UIMessage[]
   transport: TriggerChatTransport
 }) {
@@ -203,7 +228,7 @@ function ChatView({
         )}
         <PromptInput
           onSubmit={async () => {
-            if (!text.trim() || pending) return
+            if (!text.trim() || pending || (members && !botId)) return
             await sendMessage({ text: text.trim() })
             setText("")
           }}
@@ -216,14 +241,55 @@ function ChatView({
               disabled={pending}
             />
           </PromptInputBody>
-          <PromptInputFooter className="justify-end">
+          <PromptInputFooter
+            className={members ? "justify-between" : "justify-end"}
+          >
+            {members && (
+              <PromptInputActionMenu>
+                <PromptInputActionMenuTrigger
+                  variant="secondary"
+                  className="h-8 max-w-full gap-2 rounded-xl px-3 font-medium text-muted-foreground"
+                  disabled={pending || !members.length}
+                  aria-label="Choose bot to talk to"
+                >
+                  {botId && (
+                    <ChatAvatar
+                      seed={
+                        members.find((bot) => bot.id === botId)?.avatar ?? botId
+                      }
+                      className="size-5"
+                    />
+                  )}
+                  <span className="truncate">
+                    {members.find((bot) => bot.id === botId)?.name ??
+                      "No bots available"}
+                  </span>
+                  <ChevronDownIcon className="size-4" />
+                </PromptInputActionMenuTrigger>
+                <PromptInputActionMenuContent>
+                  <DropdownMenuGroup>
+                    {members.map((bot) => (
+                      <PromptInputActionMenuItem
+                        key={bot.id}
+                        onClick={() => onBotChange(bot.id)}
+                      >
+                        <ChatAvatar seed={bot.avatar} className="size-5" />
+                        {bot.name}
+                      </PromptInputActionMenuItem>
+                    ))}
+                  </DropdownMenuGroup>
+                </PromptInputActionMenuContent>
+              </PromptInputActionMenu>
+            )}
             <PromptInputSubmit
               status={status}
               onStop={() => {
                 void stop()
                 void transport.stopGeneration(chatId)
               }}
-              disabled={!pending && !text.trim()}
+              disabled={
+                !pending && (!text.trim() || Boolean(members && !botId))
+              }
             />
           </PromptInputFooter>
         </PromptInput>

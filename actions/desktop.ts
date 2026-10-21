@@ -13,7 +13,7 @@ export async function connectDesktop(chatId: unknown) {
 
   try {
     const chat = await getChat(id.data)
-    if (!chat?.botSandboxId)
+    if (chat?.kind === "group" || !chat?.botSandboxId)
       return {
         error: "This bot has no desktop. Create a new bot to get a desktop.",
       }

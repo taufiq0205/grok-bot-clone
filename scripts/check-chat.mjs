@@ -8,7 +8,18 @@ import * as schema from "../lib/db/schema.ts"
 let authenticated = true
 let failure = false
 let rows = [
-  ["chat_1", "bot_1", "Writer", "Be brief", "sandbox_1", "Quill", "avatar_1"],
+  [
+    "chat_1",
+    "group",
+    [{ id: "bot_1", name: "Quill", avatar: "avatar_1" }],
+    "Weekend plans",
+    "bot_1",
+    "Writer",
+    "Be brief",
+    "sandbox_1",
+    "Quill",
+    "avatar_1",
+  ],
 ]
 const requests = []
 const db = drizzle({
@@ -50,6 +61,9 @@ assert.equal(requests.length, 0)
 authenticated = true
 assert.deepEqual(await queries.getChat("chat_1"), {
   id: "chat_1",
+  kind: "group",
+  members: [{ id: "bot_1", name: "Quill", avatar: "avatar_1" }],
+  name: "Weekend plans",
   botId: "bot_1",
   botJob: "Writer",
   botInstructions: "Be brief",
@@ -58,16 +72,24 @@ assert.deepEqual(await queries.getChat("chat_1"), {
   botAvatar: "avatar_1",
 })
 const request = requests[0]
-assert.match(request.text, /"bots"\."user_id" = \$1/)
+assert.match(request.text, /"bots"\."user_id" = \$2/)
 assert.match(
   request.text,
-  /order by "chat_members"\."joined_at" asc, "bots"\."id" asc limit \$2/
+  /order by "chat_members"\."joined_at" asc, "bots"\."id" asc limit \$3/
 )
 assert.match(
   request.text,
-  /where \("chats"\."id" = \$4 and "chats"\."user_id" = \$5\)/
+  /where \("chats"\."id" = \$5 and "chats"\."user_id" = \$6\)/
 )
-assert.deepEqual(request.values, ["user_1", 1, "user_1", "chat_1", "user_1", 1])
+assert.deepEqual(request.values, [
+  "user_1",
+  "user_1",
+  1,
+  "user_1",
+  "chat_1",
+  "user_1",
+  1,
+])
 rows = []
 assert.equal(await queries.getChat("other_users_chat"), undefined)
 failure = true
