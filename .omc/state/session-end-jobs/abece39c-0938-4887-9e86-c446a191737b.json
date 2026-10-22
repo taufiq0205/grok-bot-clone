@@ -1,0 +1,331 @@
+{
+  "version": 1,
+  "jobId": "611df0a5-d479-4a96-bb68-a282b8883c74",
+  "sessionId": "abece39c-0938-4887-9e86-c446a191737b",
+  "scopeKey": "6d671d260231bb9baa9a8b4fafb8c331cd0ad33ab7ae51a81fd228be7f84f0ef",
+  "revision": 53,
+  "createdAt": "2026-10-22T02:44:56.029Z",
+  "updatedAt": "2026-10-22T02:45:27.464Z",
+  "producerGraceExpiresAt": "2026-10-22T02:45:26.031Z",
+  "bestEffortDeadlineAt": "2026-10-22T02:46:17.031Z",
+  "producers": {
+    "core": {
+      "state": "sealed",
+      "intentKey": "a4a1f21112d2db6ef90d263a869862779aadc064c1999b83e37ef48f31185e9d",
+      "payloadDigest": "a4a1f21112d2db6ef90d263a869862779aadc064c1999b83e37ef48f31185e9d",
+      "sealedAt": "2026-10-22T02:45:26.348Z",
+      "sealedBy": "recovery"
+    },
+    "wiki": {
+      "state": "no-op",
+      "sealedAt": "2026-10-22T02:44:56.029Z",
+      "sealedBy": "wiki-producer"
+    }
+  },
+  "actions": {
+    "foreground-cleanup": {
+      "class": "required",
+      "phase": "deferred-required",
+      "status": "completed",
+      "attempts": 1,
+      "idempotencyKey": "febf6dba2f2536433960a07f7cedce72e946b43ced0896570df80f017b8914d2",
+      "payload": {
+        "transcriptPath": "/Users/mtaufiq456/.claude/projects/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b.jsonl",
+        "cwd": "/Users/mtaufiq456/Documents/personal/projects/grok-bot-clone",
+        "reason": "other",
+        "input": {
+          "session_id": "abece39c-0938-4887-9e86-c446a191737b",
+          "transcript_path": "/Users/mtaufiq456/.claude/projects/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b.jsonl",
+          "cwd": "/Users/mtaufiq456/Documents/personal/projects/grok-bot-clone",
+          "scratchpad_dir": "/private/tmp/claude-501/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b/scratchpad",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "abece39c-0938-4887-9e86-c446a191737b",
+          "ended_at": "2026-10-22T02:44:56.024Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {}
+      },
+      "budgetMs": 9000,
+      "claimedAt": "2026-10-22T02:45:26.084Z",
+      "runner": {
+        "attempt": 1,
+        "runnerNonce": "0c7e5ce7-3a61-4e96-8b0b-bf9259face74",
+        "phase": "terminal",
+        "deadlineAt": "2026-10-22T02:45:36.032Z"
+      },
+      "lastOutcomeCode": "completed",
+      "completedAt": "2026-10-22T02:45:26.339Z"
+    },
+    "wiki-capture": {
+      "class": "required",
+      "phase": "deferred-required",
+      "status": "completed",
+      "attempts": 0,
+      "idempotencyKey": "1719cd1ef5b51e0269b78c4cb8c9308c9c1f7b82fd1c067fc034c060f23863f5",
+      "payload": {},
+      "budgetMs": 9000,
+      "completedAt": "2026-10-22T02:44:56.029Z"
+    },
+    "team-cleanup": {
+      "class": "required",
+      "phase": "deferred-required",
+      "status": "completed",
+      "attempts": 1,
+      "idempotencyKey": "cee6ac31df545408e1e822247ac249b3f8182a98a5fe8e448ae3b251e55bdee1",
+      "payload": {
+        "transcriptPath": "/Users/mtaufiq456/.claude/projects/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b.jsonl",
+        "cwd": "/Users/mtaufiq456/Documents/personal/projects/grok-bot-clone",
+        "reason": "other",
+        "input": {
+          "session_id": "abece39c-0938-4887-9e86-c446a191737b",
+          "transcript_path": "/Users/mtaufiq456/.claude/projects/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b.jsonl",
+          "cwd": "/Users/mtaufiq456/Documents/personal/projects/grok-bot-clone",
+          "scratchpad_dir": "/private/tmp/claude-501/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b/scratchpad",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "abece39c-0938-4887-9e86-c446a191737b",
+          "ended_at": "2026-10-22T02:44:56.024Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {}
+      },
+      "budgetMs": 9000,
+      "claimedAt": "2026-10-22T02:45:26.371Z",
+      "runner": {
+        "attempt": 1,
+        "runnerNonce": "2af5fa12-f209-487f-bc9d-476ffa1071d7",
+        "phase": "terminal",
+        "deadlineAt": "2026-10-22T02:45:36.032Z"
+      },
+      "lastOutcomeCode": "completed",
+      "completedAt": "2026-10-22T02:45:26.534Z"
+    },
+    "python-cleanup": {
+      "class": "required",
+      "phase": "deferred-required",
+      "status": "completed",
+      "attempts": 1,
+      "idempotencyKey": "1f1370c4ac056606059d517e2f106b602d8cbcb04587b3fcc5f3b9f89e649cd0",
+      "payload": {
+        "transcriptPath": "/Users/mtaufiq456/.claude/projects/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b.jsonl",
+        "cwd": "/Users/mtaufiq456/Documents/personal/projects/grok-bot-clone",
+        "reason": "other",
+        "input": {
+          "session_id": "abece39c-0938-4887-9e86-c446a191737b",
+          "transcript_path": "/Users/mtaufiq456/.claude/projects/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b.jsonl",
+          "cwd": "/Users/mtaufiq456/Documents/personal/projects/grok-bot-clone",
+          "scratchpad_dir": "/private/tmp/claude-501/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b/scratchpad",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "abece39c-0938-4887-9e86-c446a191737b",
+          "ended_at": "2026-10-22T02:44:56.024Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {}
+      },
+      "budgetMs": 9000,
+      "claimedAt": "2026-10-22T02:45:26.555Z",
+      "runner": {
+        "attempt": 1,
+        "runnerNonce": "580d4a3e-567a-420d-b610-42f32ed8c1cd",
+        "phase": "terminal",
+        "deadlineAt": "2026-10-22T02:45:36.032Z"
+      },
+      "lastOutcomeCode": "completed",
+      "completedAt": "2026-10-22T02:45:26.721Z"
+    },
+    "reply-cleanup": {
+      "class": "required",
+      "phase": "deferred-required",
+      "status": "completed",
+      "attempts": 1,
+      "idempotencyKey": "0b3a8b47c28b26d56aca004d4f572b96c118f16819c0d35162418816f9a5420a",
+      "payload": {
+        "transcriptPath": "/Users/mtaufiq456/.claude/projects/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b.jsonl",
+        "cwd": "/Users/mtaufiq456/Documents/personal/projects/grok-bot-clone",
+        "reason": "other",
+        "input": {
+          "session_id": "abece39c-0938-4887-9e86-c446a191737b",
+          "transcript_path": "/Users/mtaufiq456/.claude/projects/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b.jsonl",
+          "cwd": "/Users/mtaufiq456/Documents/personal/projects/grok-bot-clone",
+          "scratchpad_dir": "/private/tmp/claude-501/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b/scratchpad",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "abece39c-0938-4887-9e86-c446a191737b",
+          "ended_at": "2026-10-22T02:44:56.024Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {}
+      },
+      "budgetMs": 9000,
+      "claimedAt": "2026-10-22T02:45:26.740Z",
+      "runner": {
+        "attempt": 1,
+        "runnerNonce": "c37890b1-cd5f-4b1f-bd32-5f682d7e901a",
+        "phase": "terminal",
+        "deadlineAt": "2026-10-22T02:45:36.032Z"
+      },
+      "lastOutcomeCode": "completed",
+      "completedAt": "2026-10-22T02:45:26.918Z"
+    },
+    "callback": {
+      "class": "best-effort",
+      "phase": "deferred-best-effort",
+      "status": "completed",
+      "attempts": 1,
+      "idempotencyKey": "d068ede2655bf89e0c0950e087d0603d7dcf45538e94f20a654d08c6f4841895",
+      "payload": {
+        "transcriptPath": "/Users/mtaufiq456/.claude/projects/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b.jsonl",
+        "cwd": "/Users/mtaufiq456/Documents/personal/projects/grok-bot-clone",
+        "reason": "other",
+        "input": {
+          "session_id": "abece39c-0938-4887-9e86-c446a191737b",
+          "transcript_path": "/Users/mtaufiq456/.claude/projects/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b.jsonl",
+          "cwd": "/Users/mtaufiq456/Documents/personal/projects/grok-bot-clone",
+          "scratchpad_dir": "/private/tmp/claude-501/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b/scratchpad",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "abece39c-0938-4887-9e86-c446a191737b",
+          "ended_at": "2026-10-22T02:44:56.024Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {}
+      },
+      "budgetMs": 2000,
+      "claimedAt": "2026-10-22T02:45:26.939Z",
+      "runner": {
+        "attempt": 1,
+        "runnerNonce": "bd1e2366-76de-449e-af2b-c53cf44fde1f",
+        "phase": "terminal",
+        "deadlineAt": "2026-10-22T02:45:36.032Z"
+      },
+      "lastOutcomeCode": "completed",
+      "completedAt": "2026-10-22T02:45:27.087Z"
+    },
+    "notification": {
+      "class": "best-effort",
+      "phase": "deferred-best-effort",
+      "status": "completed",
+      "attempts": 1,
+      "idempotencyKey": "89c0438ff63097ce04beb60efb87292ff68a7af350a0ee331f3de9dbf42d62fc",
+      "payload": {
+        "transcriptPath": "/Users/mtaufiq456/.claude/projects/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b.jsonl",
+        "cwd": "/Users/mtaufiq456/Documents/personal/projects/grok-bot-clone",
+        "reason": "other",
+        "input": {
+          "session_id": "abece39c-0938-4887-9e86-c446a191737b",
+          "transcript_path": "/Users/mtaufiq456/.claude/projects/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b.jsonl",
+          "cwd": "/Users/mtaufiq456/Documents/personal/projects/grok-bot-clone",
+          "scratchpad_dir": "/private/tmp/claude-501/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b/scratchpad",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "abece39c-0938-4887-9e86-c446a191737b",
+          "ended_at": "2026-10-22T02:44:56.024Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {}
+      },
+      "budgetMs": 2000,
+      "claimedAt": "2026-10-22T02:45:27.109Z",
+      "runner": {
+        "attempt": 1,
+        "runnerNonce": "f21ec396-3556-4b63-a424-03281c528baf",
+        "phase": "terminal",
+        "deadlineAt": "2026-10-22T02:45:36.032Z"
+      },
+      "lastOutcomeCode": "completed",
+      "completedAt": "2026-10-22T02:45:27.257Z"
+    },
+    "openclaw": {
+      "class": "best-effort",
+      "phase": "deferred-best-effort",
+      "status": "completed",
+      "attempts": 1,
+      "idempotencyKey": "31fe8f6e1cf204e27006de511df257326fdd98655122ca437013e8779ffc735b",
+      "payload": {
+        "transcriptPath": "/Users/mtaufiq456/.claude/projects/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b.jsonl",
+        "cwd": "/Users/mtaufiq456/Documents/personal/projects/grok-bot-clone",
+        "reason": "other",
+        "input": {
+          "session_id": "abece39c-0938-4887-9e86-c446a191737b",
+          "transcript_path": "/Users/mtaufiq456/.claude/projects/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b.jsonl",
+          "cwd": "/Users/mtaufiq456/Documents/personal/projects/grok-bot-clone",
+          "scratchpad_dir": "/private/tmp/claude-501/-Users-mtaufiq456-Documents-personal-projects-grok-bot-clone/abece39c-0938-4887-9e86-c446a191737b/scratchpad",
+          "hook_event_name": "SessionEnd",
+          "reason": "other"
+        },
+        "metrics": {
+          "session_id": "abece39c-0938-4887-9e86-c446a191737b",
+          "ended_at": "2026-10-22T02:44:56.024Z",
+          "reason": "other",
+          "agents_spawned": 0,
+          "agents_completed": 0,
+          "modes_used": []
+        },
+        "initialTeamNames": [],
+        "openClawEnabled": false,
+        "openClawRouting": {}
+      },
+      "budgetMs": 2000,
+      "claimedAt": "2026-10-22T02:45:27.278Z",
+      "runner": {
+        "attempt": 1,
+        "runnerNonce": "b3838510-fe84-49f8-8427-f12a78d9d417",
+        "phase": "terminal",
+        "deadlineAt": "2026-10-22T02:45:36.032Z"
+      },
+      "lastOutcomeCode": "completed",
+      "completedAt": "2026-10-22T02:45:27.424Z"
+    }
+  },
+  "owner": null,
+  "phase": "complete",
+  "completion": {
+    "completedAt": "2026-10-22T02:45:27.444Z",
+    "terminalDigest": "d16a2df09b4de770436d184905381f267904b9e5ef505b5f89913e9d7de33b21",
+    "terminalRevision": 52
+  }
+}

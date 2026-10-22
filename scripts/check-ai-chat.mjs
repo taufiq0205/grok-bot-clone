@@ -1,3 +1,5 @@
+import { mockChatAgent } from "@trigger.dev/sdk/ai/test"
+import { chat as managedChat } from "@trigger.dev/sdk/ai"
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import ts from "typescript"
@@ -8,7 +10,8 @@ import * as React from "react"
 import * as jsxRuntime from "react/jsx-runtime"
 import { renderToStaticMarkup } from "react-dom/server"
 import { isToolUIPart, getToolName } from "ai"
-import { stepCountIs } from "ai"
+import { stepCountIs, tool, streamText as sdkStreamText } from "ai"
+import { MockLanguageModelV4, simulateReadableStream } from "ai/test"
 import { createSandboxTools } from "../lib/sandbox-tools.ts"
 
 function load(path, dependencies) {
@@ -129,9 +132,14 @@ let rows = [
 let queryFailure = false
 const queries = []
 const sandboxIds = []
+const responseParts = []
+let writeResponse = (part) => responseParts.push(part)
+let uiHistory = []
+let readHistory = () => uiHistory
+let roster = []
 const { chatAgent } = load("../trigger/chat.ts", {
   zod: { z },
-  ai: { stepCountIs },
+  ai: { stepCountIs, tool },
   "../lib/sandbox-tools": { createSandboxTools },
   "../lib/daytona": {
     getDaytona: () => ({
@@ -144,6 +152,8 @@ const { chatAgent } = load("../trigger/chat.ts", {
   "@ai-sdk/deepseek": { deepSeek: (model) => model },
   "@trigger.dev/sdk/ai": {
     chat: {
+      response: { write: (part) => writeResponse(part) },
+      history: { all: () => readHistory() },
       withClientData: ({ schema }) => ({
         agent: (config) => ({ ...config, clientDataSchema: schema }),
       }),
@@ -155,7 +165,9 @@ const { chatAgent } = load("../trigger/chat.ts", {
       async query(sql, values) {
         queries.push({ sql, values })
         if (queryFailure) throw new Error("Database unavailable")
-        return { rows }
+        return {
+          rows: sql.includes('NULL::text AS "sandboxId"') ? roster : rows,
+        }
       }
     },
   },
@@ -163,6 +175,7 @@ const { chatAgent } = load("../trigger/chat.ts", {
 const messages = [
   { id: "1", role: "user", parts: [{ type: "text", text: "Hello" }] },
 ]
+uiHistory = messages
 assert.deepEqual(await chatAgent.onValidateMessages({ messages }), messages)
 for (const invalid of [
   [],
@@ -202,7 +215,10 @@ try {
   )
   assert.match(result.instructions, /sandbox tools/)
   assert.match(result.instructions, /showInChat: true/)
-  assert.equal(result.tools, resolvedTools)
+  const { handoff, ...sandboxTools } = resolvedTools
+  assert.equal(handoff.inputSchema.safeParse({ botId: "" }).success, false)
+  assert.deepEqual(result.tools, sandboxTools)
+  assert.equal(result.tools.handoff, undefined)
   assert.ok(result.tools.viewScreen.toModelOutput)
   assert.equal(typeof result.stopWhen, "function")
   assert.equal(result.model, "deepseek-flash")
@@ -240,7 +256,51 @@ try {
     ["bot_2", "Grace"],
   ]) {
     rows = [
-      { kind: "group", name, job: "Writer", sandboxId: "ignored_sandbox" },
+      {
+        kind: "group",
+        id,
+        avatar: id,
+        name,
+        job: "Writer",
+        sandboxId: "ignored_sandbox",
+      },
+    ]
+    roster = [
+      rows[0],
+      {
+        id: "target",
+        kind: "group",
+        name: "Tutor",
+        job: "Teaching",
+        instructions: "Teach with examples.",
+        avatar: "tutor-avatar",
+      },
+    ]
+    uiHistory = [
+      {
+        id: "old-reply",
+        role: "assistant",
+        parts: [
+          { type: "data-bot-identity", data: "target" },
+          { type: "text", text: "I am Tutor. I used my handoff earlier." },
+          {
+            type: "tool-handoff",
+            toolCallId: "stale-handoff",
+            state: "output-error",
+            input: { botId: id },
+            errorText: "Old turn already handed off",
+          },
+        ],
+      },
+      {
+        id: "legacy-reply",
+        role: "assistant",
+        parts: [
+          { type: "data-bot-avatar", data: id },
+          { type: "text", text: "An older reply without a stored bot ID." },
+        ],
+      },
+      messages[0],
     ]
     const group = await chatAgent.run({
       chatId: "group_1",
@@ -250,12 +310,220 @@ try {
       signal,
       streamText: (options) => options,
     })
-    assert.deepEqual(group.tools, {})
+    assert.deepEqual(Object.keys(group.tools), ["handoff"])
+    assert.equal(
+      group.tools.handoff.inputSchema.safeParse({ botId: id }).success,
+      false
+    )
+    assert.equal(
+      group.tools.handoff.inputSchema.safeParse({ botId: "target" }).success,
+      true
+    )
+    assert.deepEqual(responseParts.at(-1), {
+      type: "data-bot-avatar",
+      id: "bot-avatar",
+      data: id,
+    })
     assert.match(group.instructions, new RegExp(name))
     assert.match(group.instructions, /No sandbox is associated/)
-    assert.deepEqual(queries.at(-1).values, ["group_1", id])
-    assert.match(queries.at(-1).sql, /c.kind = 'direct' OR b.id = \$2/)
+    assert.deepEqual(queries.at(-2).values, ["group_1", id])
+    assert.match(queries.at(-2).sql, /c.kind = 'direct' OR b.id = \$2/)
+    assert.match(queries.at(-1).sql, /b.user_id = c.user_id/)
+    assert.match(queries.at(-1).sql, /c.kind = 'group'/)
+    assert.match(group.instructions, /Group members/)
+    assert.match(group.instructions, /Teaching/)
+    assert.match(group.instructions, /fresh user turn/)
+    assert.match(group.instructions, /0 of 1/)
+    assert.match(group.instructions, /authoritative/)
+    assert.equal(group.messages[0].role, "user")
+    assert.match(group.messages[0].content, /"name":"Tutor"/)
+    assert.match(group.messages[1].content, new RegExp(`"name":"${name}"`))
+    assert.doesNotMatch(
+      JSON.stringify(group.messages),
+      /stale-handoff|Old turn already handed off/
+    )
+    assert.equal(group.messages.at(-1).content, "Hello")
+    assert.deepEqual(group.prepareStep().activeTools, ["handoff"])
+    const execute = group.tools.handoff.execute
+    assert.match((await execute({ botId: "outsider" })).error, /not a member/)
+    assert.match(
+      (await execute({ botId: id })).error,
+      new RegExp(`already ${name}`)
+    )
+    assert.deepEqual(await execute({ botId: "target" }), {
+      botId: "target",
+      name: "Tutor",
+      fromAvatar: id,
+    })
+    const next = group.prepareStep()
+    assert.match(next.instructions, /"name":"Tutor","job":"Teaching"/)
+    assert.match(next.instructions, /Teach with examples/)
+    assert.match(next.instructions, /This turn was handed to you/)
+    assert.match(next.instructions, /handoff to Tutor has already succeeded/)
+    assert.match(next.instructions, /as fulfilled, not as a new request/)
+    assert.match(next.instructions, /acknowledge that you have taken over/)
+    assert.doesNotMatch(
+      next.instructions,
+      /If the requested bot ID is your own ID, say you are already/
+    )
+    assert.deepEqual(next.activeTools, [])
+    assert.deepEqual(next.messages, group.messages)
+    assert.deepEqual(responseParts.at(-1), {
+      type: "data-bot-avatar",
+      id: "bot-avatar",
+      data: "tutor-avatar",
+    })
+    assert.match(
+      (await execute({ botId: id })).error,
+      /already been handed off/
+    )
   }
+
+  uiHistory = messages
+  const usage = {
+    inputTokens: { total: 1, noCache: 1 },
+    outputTokens: { total: 1, text: 1 },
+  }
+  const mockModel = new MockLanguageModelV4({
+    doStream: [
+      {
+        stream: simulateReadableStream({
+          chunks: [
+            {
+              type: "tool-call",
+              toolCallId: "handoff_real",
+              toolName: "handoff",
+              input: JSON.stringify({ botId: "target" }),
+            },
+            { type: "finish", finishReason: { unified: "tool-calls" }, usage },
+          ],
+        }),
+        warnings: [],
+      },
+      {
+        stream: simulateReadableStream({
+          chunks: [
+            { type: "text-start", id: "reply" },
+            { type: "text-delta", id: "reply", delta: "Tutor response" },
+            { type: "text-end", id: "reply" },
+            { type: "finish", finishReason: { unified: "stop" }, usage },
+          ],
+        }),
+        warnings: [],
+      },
+    ],
+  })
+  const realLoop = await chatAgent.run({
+    chatId: "group_1",
+    clientData: { botId: rows[0].id },
+    messages: [{ role: "user", content: "Hello" }],
+    tools: resolvedTools,
+    signal,
+    streamText: (options) => sdkStreamText({ ...options, model: mockModel }),
+  })
+  await realLoop.consumeStream()
+  assert.equal(await realLoop.text, "Tutor response")
+  assert.equal(mockModel.doStreamCalls.length, 2)
+  assert.match(JSON.stringify(mockModel.doStreamCalls[0].prompt), /Grace/)
+  assert.match(
+    JSON.stringify(mockModel.doStreamCalls[1].prompt),
+    /Teach with examples/
+  )
+  assert.doesNotMatch(
+    JSON.stringify(mockModel.doStreamCalls[1].prompt),
+    /handoff_real/
+  )
+  assert.equal(mockModel.doStreamCalls[1].tools?.length ?? 0, 0)
+  console.log(
+    "Real AI SDK stream loop switches to the receiver instructions, original request, and no further tools."
+  )
+
+  const managedModel = new MockLanguageModelV4({
+    doStream: async () => {
+      const targetTurn = managedModel.doStreamCalls.length % 2 === 0
+      return {
+        stream: simulateReadableStream({
+          chunks: targetTurn
+            ? [
+                { type: "text-start", id: "receiver" },
+                {
+                  type: "text-delta",
+                  id: "receiver",
+                  delta: "Managed Tutor response",
+                },
+                { type: "text-end", id: "receiver" },
+                { type: "finish", finishReason: { unified: "stop" }, usage },
+              ]
+            : [
+                {
+                  type: "tool-call",
+                  toolCallId: `managed_handoff_${managedModel.doStreamCalls.length}`,
+                  toolName: "handoff",
+                  input: JSON.stringify({ botId: "target" }),
+                },
+                {
+                  type: "finish",
+                  finishReason: { unified: "tool-calls" },
+                  usage,
+                },
+              ],
+        }),
+        warnings: [],
+      }
+    },
+  })
+  writeResponse = (part) => managedChat.response.write(part)
+  readHistory = () => managedChat.history.all()
+  const integratedAgent = managedChat.agent({
+    ...chatAgent,
+    id: "handoff-integration-check",
+    run: (args) =>
+      chatAgent.run({
+        ...args,
+        streamText: (options) =>
+          args.streamText({ ...options, model: managedModel }),
+      }),
+  })
+  const harness = mockChatAgent(integratedAgent, {
+    chatId: "group_1",
+    clientData: { botId: rows[0].id },
+  })
+  try {
+    for (const message of [messages[0], { ...messages[0], id: "follow-up" }]) {
+      let timer
+      const turn = await Promise.race([
+        harness.sendMessage(message),
+        new Promise((_, reject) => {
+          timer = setTimeout(
+            () =>
+              reject(
+                new Error("Managed Trigger handoff did not finish in 5 seconds")
+              ),
+            5000
+          )
+        }),
+      ]).finally(() => clearTimeout(timer))
+      assert.ok(
+        turn.chunks.some(
+          (chunk) =>
+            chunk.type === "text-delta" &&
+            chunk.delta === "Managed Tutor response"
+        )
+      )
+      assert.ok(turn.chunks.some((chunk) => chunk.type === "finish"))
+    }
+    assert.equal(managedModel.doStreamCalls.length, 4)
+    console.log(
+      "Full managed Trigger handoff reaches receiver text and turn completion on two consecutive turns."
+    )
+  } finally {
+    await harness.close()
+    writeResponse = (part) => responseParts.push(part)
+    readHistory = () => uiHistory
+  }
+  console.log(
+    "Handoff checks passed: owned roster, target instructions/avatar, self/non-member rejection, one handoff per turn, and no direct-chat handoff (stubbed)."
+  )
   rows = [{ kind: "group", name: null }]
   await assert.rejects(run(), /Select a bot/)
   assert.equal(
@@ -297,6 +565,7 @@ const renderedMessages = [
     id: "tool_message",
     role: "assistant",
     parts: [
+      { type: "data-bot-avatar", data: "reply-bot-avatar" },
       { type: "text", text: "Done." },
       {
         type: "tool-bash",
@@ -345,7 +614,9 @@ const { Chat } = load("../components/chat.tsx", {
     },
   },
   react: React,
-  "@/components/chat-avatar": { ChatAvatar: wrapper },
+  "@/components/chat-avatar": {
+    ChatAvatar: ({ seed }) => React.createElement("i", { "data-avatar": seed }),
+  },
   "@/components/ui/dropdown-menu": primitives(["DropdownMenuGroup"]),
   "lucide-react": primitives(["ChevronDownIcon"]),
   ai: { isToolUIPart, getToolName },
@@ -397,6 +668,7 @@ const markup = renderToStaticMarkup(
   React.createElement(Chat, { chatId: "chat_1" })
 )
 assert.match(markup, /Done\./)
+assert.doesNotMatch(markup, /reply-bot-avatar/)
 assert.match(markup, /output-available/)
 assert.match(markup, /input-streaming/)
 assert.match(markup, /output-error/)
@@ -410,6 +682,23 @@ console.log(
   "Chat render checks passed: text, static/dynamic tool calls, pending/errors, and selective screenshot display (stubbed UI boundaries)."
 )
 
+renderedMessages[0].parts.splice(
+  1,
+  0,
+  { type: "text", text: "Sender preamble" },
+  {
+    type: "tool-handoff",
+    toolCallId: "handoff_1",
+    state: "output-available",
+    input: { botId: "bot_2" },
+    output: {
+      botId: "bot_2",
+      name: "Code reviewer",
+      fromAvatar: "sender-avatar",
+    },
+  },
+  { type: "data-bot-avatar", data: "receiver-avatar" }
+)
 const groupMarkup = renderToStaticMarkup(
   React.createElement(Chat, {
     chatId: "group_1",
@@ -424,4 +713,86 @@ assert.match(groupMarkup, /Ada/)
 assert.match(groupMarkup, /Grace/)
 console.log(
   "Group composer renders bot choices and sends the selected bot through transport clientData."
+)
+
+assert.match(groupMarkup, /Handed off to Code reviewer/)
+assert.match(groupMarkup, /data-avatar="receiver-avatar"/)
+assert.match(groupMarkup, /data-avatar="receiver-avatar"><\/i><div><div>Done\./)
+console.log(
+  "Group replies use the persisted responder avatar rather than the current selection; direct replies omit it."
+)
+
+assert.doesNotMatch(groupMarkup, /Sender preamble/)
+assert.match(groupMarkup, /data-avatar="sender-avatar"/)
+assert.ok(
+  groupMarkup.indexOf("Handed off to Code reviewer") <
+    groupMarkup.indexOf('data-avatar="receiver-avatar"')
+)
+console.log(
+  "Handoff renders the source indicator before the receiver reply and omits sender preamble."
+)
+
+renderedMessages.push({
+  id: "empty-sender",
+  role: "assistant",
+  parts: [
+    { type: "data-bot-avatar", data: "empty-sender-avatar" },
+    { type: "step-start" },
+    { type: "text", text: "  " },
+  ],
+})
+const emptyRowMarkup = renderToStaticMarkup(
+  React.createElement(Chat, {
+    chatId: "group_1",
+    members: [{ id: "bot_1", name: "Ada", avatar: "ada" }],
+  })
+)
+assert.doesNotMatch(emptyRowMarkup, /empty-sender-avatar/)
+console.log("Group metadata-only replies do not render empty avatar rows.")
+
+renderedMessages.push({
+  id: "handoff-only",
+  role: "assistant",
+  parts: [
+    { type: "data-bot-avatar", data: "empty-receiver-avatar" },
+    {
+      type: "tool-handoff",
+      toolCallId: "handoff-only-call",
+      state: "output-available",
+      input: { botId: "bot_2" },
+      output: { name: "Tutor", fromAvatar: "indicator-avatar" },
+    },
+  ],
+})
+const handoffOnlyMarkup = renderToStaticMarkup(
+  React.createElement(Chat, {
+    chatId: "group_1",
+    members: [{ id: "bot_1", name: "Ada", avatar: "ada" }],
+  })
+)
+assert.match(handoffOnlyMarkup, /Handed off to Tutor/)
+assert.match(handoffOnlyMarkup, /indicator-avatar/)
+assert.doesNotMatch(handoffOnlyMarkup, /empty-receiver-avatar/)
+renderedMessages.push({
+  id: "handoff-failure",
+  role: "assistant",
+  parts: [
+    {
+      type: "tool-handoff",
+      toolCallId: "failed-handoff",
+      state: "output-available",
+      input: { botId: "self" },
+      output: { error: "You are already this bot. Answer directly." },
+    },
+  ],
+})
+const failedHandoffMarkup = renderToStaticMarkup(
+  React.createElement(Chat, {
+    chatId: "group_1",
+    members: [{ id: "bot_1", name: "Ada", avatar: "ada" }],
+  })
+)
+assert.match(failedHandoffMarkup, /You are already this bot/)
+console.log(
+  "Handoff-only messages keep their indicator without an empty reply; handoff errors remain visible."
 )

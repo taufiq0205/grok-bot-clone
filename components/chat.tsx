@@ -11,7 +11,7 @@ import { ChatAvatar } from "@/components/chat-avatar"
 import type { ChatBot } from "@/queries/chats"
 import { DropdownMenuGroup } from "@/components/ui/dropdown-menu"
 import { ChevronDownIcon } from "lucide-react"
-import { useState } from "react"
+import { Fragment, useState } from "react"
 import Image from "next/image"
 
 import {
@@ -131,78 +131,147 @@ function ChatView({
       <Conversation className="min-h-0 overflow-x-hidden">
         <ConversationContent className="mx-auto w-full max-w-3xl">
           {messages.length === 0 && <ConversationEmptyState />}
-          {messages.map((message) => (
-            <Message key={message.id} from={message.role}>
-              <MessageContent>
-                {message.parts.map((part, index) => {
-                  if (part.type === "text")
-                    return (
-                      <MessageResponse
-                        key={index}
-                        isAnimating={
-                          status === "streaming" &&
-                          message.id === messages.at(-1)?.id
-                        }
-                      >
-                        {part.text}
-                      </MessageResponse>
-                    )
-                  if (!isToolUIPart(part)) return null
-                  const screenshot = getToolName(part) === "viewScreen"
-                  const output =
-                    screenshot && part.state === "output-available"
-                      ? (part.output as {
-                          screenshot?: unknown
-                          showInChat?: unknown
-                        })
-                      : undefined
-                  if (
-                    output?.showInChat === true &&
-                    typeof output.screenshot === "string"
+          {messages.map((message) => {
+            const avatar =
+              members && message.role === "assistant"
+                ? message.parts.findLast(
+                    (part) => part.type === "data-bot-avatar"
                   )
-                    return (
-                      <Image
-                        key={part.toolCallId}
-                        src={`data:image/png;base64,${output.screenshot}`}
-                        alt="Agent desktop screenshot"
-                        width={1280}
-                        height={720}
-                        unoptimized
-                        className="h-auto max-w-full rounded-md border"
-                      />
-                    )
-                  return (
-                    <Tool key={part.toolCallId}>
-                      <ToolHeader
-                        {...(part.type === "dynamic-tool"
-                          ? {
-                              type: part.type,
-                              toolName: part.toolName,
-                              state: part.state,
-                            }
-                          : { type: part.type, state: part.state })}
-                      />
-                      <ToolContent>
-                        {part.input !== undefined && (
-                          <ToolInput input={part.input} />
-                        )}
-                        <ToolOutput
-                          output={
-                            screenshot
-                              ? part.state === "output-available"
-                                ? "Screen inspected."
-                                : undefined
-                              : part.output
-                          }
-                          errorText={part.errorText}
-                        />
-                      </ToolContent>
-                    </Tool>
+                : undefined
+            const handoff =
+              members && message.role === "assistant"
+                ? message.parts.find(
+                    (part) =>
+                      isToolUIPart(part) &&
+                      getToolName(part) === "handoff" &&
+                      part.state === "output-available"
                   )
-                })}
-              </MessageContent>
-            </Message>
-          ))}
+                : undefined
+            const handoffOutput =
+              handoff && isToolUIPart(handoff) ? handoff.output : undefined
+            const handoffName =
+              handoffOutput &&
+              typeof handoffOutput === "object" &&
+              "name" in handoffOutput &&
+              typeof handoffOutput.name === "string"
+                ? handoffOutput.name
+                : undefined
+            const sourceAvatar =
+              handoffOutput &&
+              typeof handoffOutput === "object" &&
+              "fromAvatar" in handoffOutput &&
+              typeof handoffOutput.fromAvatar === "string"
+                ? handoffOutput.fromAvatar
+                : undefined
+            const visibleParts = message.parts.filter((part, index) => {
+              if (
+                handoffName &&
+                handoff &&
+                index < message.parts.indexOf(handoff)
+              )
+                return false
+              if (part.type === "text") return Boolean(part.text.trim())
+              return isToolUIPart(part) && !(handoffName && part === handoff)
+            })
+            return (
+              <Fragment key={message.id}>
+                {handoffName && (
+                  <div
+                    role="status"
+                    className="flex items-center gap-3 text-sm text-muted-foreground"
+                  >
+                    {sourceAvatar && <ChatAvatar seed={sourceAvatar} />}
+                    <span>Handed off to {handoffName}</span>
+                  </div>
+                )}
+                {visibleParts.length > 0 && (
+                  <Message
+                    key={message.id}
+                    from={message.role}
+                    className={
+                      members && message.role === "assistant"
+                        ? "flex-row items-start gap-3"
+                        : undefined
+                    }
+                  >
+                    {avatar &&
+                      "data" in avatar &&
+                      typeof avatar.data === "string" && (
+                        <ChatAvatar seed={avatar.data} />
+                      )}
+                    <MessageContent>
+                      {visibleParts.map((part, index) => {
+                        if (part.type === "text")
+                          return (
+                            <MessageResponse
+                              key={index}
+                              isAnimating={
+                                status === "streaming" &&
+                                message.id === messages.at(-1)?.id
+                              }
+                            >
+                              {part.text}
+                            </MessageResponse>
+                          )
+                        if (!isToolUIPart(part)) return null
+                        const screenshot = getToolName(part) === "viewScreen"
+                        const output =
+                          screenshot && part.state === "output-available"
+                            ? (part.output as {
+                                screenshot?: unknown
+                                showInChat?: unknown
+                              })
+                            : undefined
+                        if (
+                          output?.showInChat === true &&
+                          typeof output.screenshot === "string"
+                        )
+                          return (
+                            <Image
+                              key={part.toolCallId}
+                              src={`data:image/png;base64,${output.screenshot}`}
+                              alt="Agent desktop screenshot"
+                              width={1280}
+                              height={720}
+                              unoptimized
+                              className="h-auto max-w-full rounded-md border"
+                            />
+                          )
+                        return (
+                          <Tool key={part.toolCallId}>
+                            <ToolHeader
+                              {...(part.type === "dynamic-tool"
+                                ? {
+                                    type: part.type,
+                                    toolName: part.toolName,
+                                    state: part.state,
+                                  }
+                                : { type: part.type, state: part.state })}
+                            />
+                            <ToolContent>
+                              {part.input !== undefined && (
+                                <ToolInput input={part.input} />
+                              )}
+                              <ToolOutput
+                                output={
+                                  screenshot
+                                    ? part.state === "output-available"
+                                      ? "Screen inspected."
+                                      : undefined
+                                    : part.output
+                                }
+                                errorText={part.errorText}
+                              />
+                            </ToolContent>
+                          </Tool>
+                        )
+                      })}
+                    </MessageContent>
+                  </Message>
+                )}
+              </Fragment>
+            )
+          })}
           {status === "submitted" && (
             <p role="status" className="text-sm text-muted-foreground">
               Thinking…
