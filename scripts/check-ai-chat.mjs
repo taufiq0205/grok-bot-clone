@@ -177,10 +177,37 @@ const messages = [
 ]
 uiHistory = messages
 assert.deepEqual(await chatAgent.onValidateMessages({ messages }), messages)
+const taggedMessages = [
+  {
+    id: "tagged_prompt",
+    role: "user",
+    parts: [
+      { type: "data-target-bot", data: "bot_1" },
+      { type: "text", text: "Hi Ada" },
+    ],
+  },
+]
+assert.deepEqual(
+  await chatAgent.onValidateMessages({ messages: taggedMessages }),
+  taggedMessages
+)
+for (const data of ["", "a".repeat(101), 12, null]) {
+  await assert.rejects(
+    chatAgent.onValidateMessages({
+      messages: [
+        {
+          ...taggedMessages[0],
+          parts: [{ type: "data-target-bot", data }, messages[0].parts[0]],
+        },
+      ],
+    })
+  )
+}
 for (const invalid of [
   [],
   [{ ...messages[0], role: "system" }],
   [{ ...messages[0], parts: [{ type: "file" }] }],
+  [{ ...messages[0], parts: [{ type: "data-target-bot", data: "bot_1" }] }],
 ]) {
   await assert.rejects(chatAgent.onValidateMessages({ messages: invalid }))
 }
@@ -663,6 +690,7 @@ const { Chat } = load("../components/chat.tsx", {
   },
   "@/components/ui/alert": primitives(["Alert", "AlertDescription"]),
   "@/components/ui/button": primitives(["Button"]),
+  "@/components/ui/badge": primitives(["Badge"]),
 })
 const markup = renderToStaticMarkup(
   React.createElement(Chat, { chatId: "chat_1" })

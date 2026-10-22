@@ -27,8 +27,17 @@ const messagesSchema = z
       id: z.string(),
       role: z.enum(["user", "assistant"]),
       parts: z
-        .array(z.object({ type: z.literal("text"), text: z.string() }))
-        .min(1),
+        .array(
+          z.discriminatedUnion("type", [
+            z.object({ type: z.literal("text"), text: z.string() }),
+            z.object({
+              type: z.literal("data-target-bot"),
+              data: z.string().min(1).max(100),
+            }),
+          ])
+        )
+        .min(1)
+        .refine((parts) => parts.some((part) => part.type === "text")),
     })
   )
   .min(1)

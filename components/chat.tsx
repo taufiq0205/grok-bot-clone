@@ -52,6 +52,7 @@ import type { chatAgent } from "@/trigger/chat"
 
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 
 export function Chat({
   chatId,
@@ -132,6 +133,13 @@ function ChatView({
         <ConversationContent className="mx-auto w-full max-w-3xl">
           {messages.length === 0 && <ConversationEmptyState />}
           {messages.map((message) => {
+            const target = message.parts.find(
+              (part) => part.type === "data-target-bot"
+            )
+            const targetBot =
+              message.role === "user" && target && "data" in target
+                ? members?.find((bot) => bot.id === target.data)
+                : undefined
             const avatar =
               members && message.role === "assistant"
                 ? message.parts.findLast(
@@ -201,6 +209,27 @@ function ChatView({
                       )}
                     <MessageContent>
                       {visibleParts.map((part, index) => {
+                        if (part.type === "text" && index === 0 && targetBot)
+                          return (
+                            <div key={index} className="flex items-start gap-2">
+                              <Badge
+                                variant="outline"
+                                className="h-6 max-w-[min(10rem,50%)] gap-1.5 px-1.5 py-0 text-sm"
+                                title={targetBot.name}
+                              >
+                                <ChatAvatar
+                                  seed={targetBot.avatar}
+                                  className="size-3.5 rounded-full"
+                                />
+                                <span className="truncate">
+                                  {targetBot.name}
+                                </span>
+                              </Badge>
+                              <MessageResponse className="min-w-0 flex-1 leading-6">
+                                {part.text}
+                              </MessageResponse>
+                            </div>
+                          )
                         if (part.type === "text")
                           return (
                             <MessageResponse
@@ -298,7 +327,14 @@ function ChatView({
         <PromptInput
           onSubmit={async () => {
             if (!text.trim() || pending || (members && !botId)) return
-            await sendMessage({ text: text.trim() })
+            await sendMessage({
+              parts: [
+                ...(members && botId
+                  ? [{ type: "data-target-bot" as const, data: botId }]
+                  : []),
+                { type: "text", text: text.trim() },
+              ],
+            })
             setText("")
           }}
         >
