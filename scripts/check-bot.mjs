@@ -36,6 +36,14 @@ const sandboxCalls = []
 class DaytonaNotFoundError extends Error {}
 const sandbox = {
   id: "sandbox_1",
+  fs: {
+    uploadFile: async (content, path) => {
+      assert.equal(content.length, 0)
+      assert.equal(path, "MEMORY.md")
+      sandboxCalls.push("memory")
+      if (sandboxFailure === "memory") throw new Error("Upload failed")
+    },
+  },
   stop: async () => {
     sandboxCalls.push("stop")
     if (sandboxFailure === "stop") throw new Error("Stop failed")
@@ -171,25 +179,51 @@ assert.deepEqual(rows, [
   { table: schema.chatMembers, row: { chatId: "chat_1", botId: "bot_1" } },
 ])
 assert.deepEqual(paths, [["/(dashboard)", "layout"]])
-assert.deepEqual(sandboxCalls, ["create", "stop"])
+assert.deepEqual(sandboxCalls, ["create", "memory", "stop"])
 for (const table of [schema.bots, schema.chats, schema.chatMembers]) {
   failingTable = table
   const before = sandboxCalls.length
   assert.ok((await actions.createBot(valid)).error)
-  assert.deepEqual(sandboxCalls.slice(before), ["create", "stop", "delete"])
+  assert.deepEqual(sandboxCalls.slice(before), [
+    "create",
+    "memory",
+    "stop",
+    "delete",
+  ])
   assert.equal(rows.length, 3)
   assert.deepEqual(paths, [["/(dashboard)", "layout"]])
 }
 failingTable = undefined
-for (const failure of ["create", "stop"]) {
+for (const failure of ["create", "memory", "stop"]) {
   sandboxFailure = failure
   const before = sandboxCalls.length
   assert.ok((await actions.createBot(valid)).error)
   assert.deepEqual(
     sandboxCalls.slice(before),
-    failure === "create" ? ["create"] : ["create", "stop", "delete"]
+    failure === "create"
+      ? ["create"]
+      : failure === "memory"
+        ? ["create", "memory", "delete"]
+        : ["create", "memory", "stop", "delete"]
   )
   assert.equal(rows.length, 3)
+}
+const originalError = console.error
+const errors = []
+console.error = (...args) => errors.push(args)
+sandboxFailure = "memory"
+try {
+  assert.ok((await actions.createBot(valid)).error)
+  assert.equal(
+    errors[0][0],
+    'Failed to create bot: {"stage":"create MEMORY.md","message":"Upload failed"}'
+  )
+  process.env.BOT_CHECK_SECRET = "Upload failed"
+  assert.ok((await actions.createBot(valid)).error)
+  assert.match(errors.at(-1)[0], /"message":"\[REDACTED\]"/)
+} finally {
+  delete process.env.BOT_CHECK_SECRET
+  console.error = originalError
 }
 sandboxFailure = undefined
 commitFailure = true

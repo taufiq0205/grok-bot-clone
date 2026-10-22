@@ -54,6 +54,34 @@ export function createSandboxTools(resolveSandbox: () => Promise<Sandbox>) {
   }
 
   return {
+    readMemory: tool({
+      description:
+        "Read this bot's persistent MEMORY.md, shared across its private and group chats.",
+      inputSchema: z.object({}),
+      execute: (_, options) =>
+        run(async (sandbox) => {
+          const info = await sandbox.fs.getFileDetails("MEMORY.md")
+          if (info.size > 20000)
+            throw new Error(
+              "Memory exceeds 20000 bytes; use private chat to condense it."
+            )
+          return {
+            content: (await sandbox.fs.downloadFile("MEMORY.md", 60)).toString(
+              "utf8"
+            ),
+          }
+        }, options),
+    }),
+    writeMemory: tool({
+      description:
+        "Replace this bot's MEMORY.md with concise durable notes. Read first and retain relevant existing notes.",
+      inputSchema: z.object({ content: z.string().max(5000) }),
+      execute: ({ content }, options) =>
+        run(async (sandbox) => {
+          await sandbox.fs.uploadFile(Buffer.from(content), "MEMORY.md", 60)
+          return { written: true }
+        }, options),
+    }),
     bash: tool({
       description:
         "Run a shell command in the bot's sandbox. Commands time out after 60 seconds; output is limited to 20000 characters.",

@@ -22,11 +22,16 @@ export async function createBot(input: unknown) {
     return { error: "Check the bot details and try again." }
   }
 
+  let stage = "create sandbox"
   let sandbox: Sandbox | undefined
   try {
     sandbox = await getDaytona().create({ autoDeleteInterval: -1 })
+    stage = "create MEMORY.md"
+    await sandbox.fs.uploadFile(Buffer.alloc(0), "MEMORY.md", 60)
+    stage = "stop sandbox"
     await sandbox.stop()
     const sandboxId = sandbox.id
+    stage = "save bot and chat"
     await db.transaction(async (tx) => {
       const [bot] = await tx
         .insert(bots)
@@ -38,8 +43,13 @@ export async function createBot(input: unknown) {
         .returning({ id: chats.id })
       await tx.insert(chatMembers).values({ chatId: chat.id, botId: bot.id })
     })
-  } catch {
-    console.error("Failed to create bot")
+  } catch (error) {
+    let message = error instanceof Error ? error.message : "Unknown error"
+    for (const [key, value] of Object.entries(process.env)) {
+      if (value && /KEY|TOKEN|SECRET|PASSWORD|DATABASE_URL/.test(key))
+        message = message.replaceAll(value, "[REDACTED]")
+    }
+    console.error(`Failed to create bot: ${JSON.stringify({ stage, message })}`)
     if (sandbox) {
       try {
         await sandbox.delete()

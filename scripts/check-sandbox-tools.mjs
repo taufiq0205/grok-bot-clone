@@ -196,3 +196,21 @@ for (const state of ["archived", "paused", "starting", "error"]) {
 console.log(
   "Sandbox checks passed: lazy startup, serial actions, all ten tools, limits, validation, cancellation, sanitized errors, and screenshot history conversion (stubbed)."
 )
+
+size = 10
+assert.deepEqual(await tools.readMemory.execute({}, options), {
+  content: "hello",
+})
+assert.deepEqual(calls.at(-1), ["read", "MEMORY.md", 60])
+assert.deepEqual(
+  await tools.writeMemory.execute({ content: "Remember tea" }, options),
+  { written: true }
+)
+assert.equal(calls.at(-1)[2], "MEMORY.md")
+assert.equal(calls.at(-1)[1].toString(), "Remember tea")
+assert.equal(
+  tools.writeMemory.inputSchema.safeParse({ content: "x".repeat(5001) })
+    .success,
+  false
+)
+console.log("Memory tools read and write only MEMORY.md (stubbed).")

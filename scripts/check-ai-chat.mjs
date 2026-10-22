@@ -145,7 +145,18 @@ const { chatAgent } = load("../trigger/chat.ts", {
     getDaytona: () => ({
       get: async (id) => {
         sandboxIds.push(id)
-        return { state: "started", fs: { listFiles: async () => [] } }
+        return {
+          state: "started",
+          fs: {
+            listFiles: async () => [],
+            getFileDetails: async () => ({ size: 12 }),
+            downloadFile: async (path) => {
+              assert.equal(path, "MEMORY.md")
+              return Buffer.from(`Memory of ${id}`)
+            },
+            uploadFile: async (_, path) => assert.equal(path, "MEMORY.md"),
+          },
+        }
       },
     }),
   },
@@ -166,7 +177,7 @@ const { chatAgent } = load("../trigger/chat.ts", {
         queries.push({ sql, values })
         if (queryFailure) throw new Error("Database unavailable")
         return {
-          rows: sql.includes('NULL::text AS "sandboxId"') ? roster : rows,
+          rows: sql.includes("FROM chats c JOIN chat_members") ? roster : rows,
         }
       }
     },
@@ -301,6 +312,7 @@ try {
         job: "Teaching",
         instructions: "Teach with examples.",
         avatar: "tutor-avatar",
+        sandboxId: "tutor_sandbox",
       },
     ]
     uiHistory = [
@@ -337,7 +349,11 @@ try {
       signal,
       streamText: (options) => options,
     })
-    assert.deepEqual(Object.keys(group.tools), ["handoff"])
+    assert.deepEqual(Object.keys(group.tools), [
+      "readMemory",
+      "writeMemory",
+      "handoff",
+    ])
     assert.equal(
       group.tools.handoff.inputSchema.safeParse({ botId: id }).success,
       false
@@ -352,7 +368,7 @@ try {
       data: id,
     })
     assert.match(group.instructions, new RegExp(name))
-    assert.match(group.instructions, /No sandbox is associated/)
+    assert.match(group.instructions, /Memory: Your sandbox/)
     assert.deepEqual(queries.at(-2).values, ["group_1", id])
     assert.match(queries.at(-2).sql, /c.kind = 'direct' OR b.id = \$2/)
     assert.match(queries.at(-1).sql, /b.user_id = c.user_id/)
@@ -370,7 +386,19 @@ try {
       /stale-handoff|Old turn already handed off/
     )
     assert.equal(group.messages.at(-1).content, "Hello")
-    assert.deepEqual(group.prepareStep().activeTools, ["handoff"])
+    assert.deepEqual(group.prepareStep().activeTools, [
+      "readMemory",
+      "writeMemory",
+      "handoff",
+    ])
+    assert.deepEqual(
+      await group.tools.readMemory.execute(
+        {},
+        { toolCallId: "memory", messages: [] }
+      ),
+      { content: "Memory of ignored_sandbox" }
+    )
+    assert.equal(sandboxIds.pop(), "ignored_sandbox")
     const execute = group.tools.handoff.execute
     assert.match((await execute({ botId: "outsider" })).error, /not a member/)
     assert.match(
@@ -382,6 +410,14 @@ try {
       name: "Tutor",
       fromAvatar: id,
     })
+    assert.deepEqual(
+      await group.tools.readMemory.execute(
+        {},
+        { toolCallId: "memory", messages: [] }
+      ),
+      { content: "Memory of tutor_sandbox" }
+    )
+    assert.equal(sandboxIds.pop(), "tutor_sandbox")
     const next = group.prepareStep()
     assert.match(next.instructions, /"name":"Tutor","job":"Teaching"/)
     assert.match(next.instructions, /Teach with examples/)
@@ -393,8 +429,9 @@ try {
       next.instructions,
       /If the requested bot ID is your own ID, say you are already/
     )
-    assert.deepEqual(next.activeTools, [])
+    assert.deepEqual(next.activeTools, ["readMemory", "writeMemory"])
     assert.deepEqual(next.messages, group.messages)
+    assert.equal(group.prepareStep().messages, undefined)
     assert.deepEqual(responseParts.at(-1), {
       type: "data-bot-avatar",
       id: "bot-avatar",
@@ -460,9 +497,9 @@ try {
     JSON.stringify(mockModel.doStreamCalls[1].prompt),
     /handoff_real/
   )
-  assert.equal(mockModel.doStreamCalls[1].tools?.length ?? 0, 0)
+  assert.equal(mockModel.doStreamCalls[1].tools?.length ?? 0, 2)
   console.log(
-    "Real AI SDK stream loop switches to the receiver instructions, original request, and no further tools."
+    "Real AI SDK stream loop switches to the receiver instructions, original request, and memory tools only."
   )
 
   const managedModel = new MockLanguageModelV4({
