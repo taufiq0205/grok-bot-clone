@@ -61,7 +61,10 @@ export function Chat({
   chatId: string
   members?: ChatBot[]
 }) {
-  const [botId, setBotId] = useState(members?.[0]?.id)
+  const [selectedBotId, setBotId] = useState(members?.[0]?.id)
+  const botId = members?.some((bot) => bot.id === selectedBotId)
+    ? selectedBotId
+    : members?.[0]?.id
   const transport = useTriggerChatTransport<typeof chatAgent>({
     task: "chat-agent",
     clientData: { botId },

@@ -1,30 +1,50 @@
 "use client"
 
+import { useState } from "react"
+import { GroupChatDialog } from "@/components/group-chat-dialog"
 import { GroupChatAvatar } from "@/components/group-chat-avatar"
 import { MonitorIcon } from "lucide-react"
 
 import { BotDialog } from "@/components/bot-dialog"
 import { DialogTrigger } from "@/components/ui/dialog"
-import type { getChat } from "@/queries/chats"
+import type { ChatBot, getChat } from "@/queries/chats"
 import { ChatAvatar } from "@/components/chat-avatar"
 import { Button } from "@/components/ui/button"
 import { useChatDesktop } from "@/components/chat-desktop"
 
 export function ChatHeader({
   chat,
+  bots = [],
 }: {
+  bots?: ChatBot[]
   chat: NonNullable<Awaited<ReturnType<typeof getChat>>>
 }) {
+  const [groupOpen, setGroupOpen] = useState(false)
   const { panelRef, panelId, open } = useChatDesktop()
 
   return (
     <header className="flex h-10 shrink-0 items-center gap-2 border-b px-4">
       <h1 className="min-w-0 flex-1">
         {chat.kind === "group" ? (
-          <span className="flex items-center gap-2 px-2.5 text-sm font-medium">
-            <GroupChatAvatar members={chat.members} className="size-5" />
-            <span className="truncate">{chat.name}</span>
-          </span>
+          <GroupChatDialog
+            bots={bots}
+            group={{
+              id: chat.id,
+              name: chat.name ?? "",
+              botIds: chat.members.map((bot) => bot.id),
+            }}
+            open={groupOpen}
+            onOpenChange={setGroupOpen}
+          >
+            <DialogTrigger
+              render={<Button variant="ghost" />}
+              aria-label={`Edit ${chat.name ?? "group chat"}`}
+              className="max-w-full"
+            >
+              <GroupChatAvatar members={chat.members} className="size-5" />
+              <span className="truncate">{chat.name}</span>
+            </DialogTrigger>
+          </GroupChatDialog>
         ) : chat.botId ? (
           <BotDialog
             bot={{

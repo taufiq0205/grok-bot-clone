@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 
-import { getChat } from "@/queries/chats"
+import { getChat, getUserBots } from "@/queries/chats"
 import { ChatHeader } from "@/components/chat-header"
 import { Chat } from "@/components/chat"
 import {
@@ -23,15 +23,17 @@ export default async function Page({
 
   if (!chat) notFound()
 
-  if (chat.kind === "group")
+  if (chat.kind === "group") {
+    const bots = await getUserBots()
     return (
       <ChatDesktopProvider key={chatId}>
         <div className="flex h-dvh min-h-0 min-w-0 flex-col overflow-hidden">
-          <ChatHeader chat={chat} />
+          <ChatHeader chat={chat} bots={bots} />
           <Chat key={chatId} chatId={chatId} members={chat.members} />
         </div>
       </ChatDesktopProvider>
     )
+  }
 
   return (
     <ChatDesktopProvider key={chatId}>

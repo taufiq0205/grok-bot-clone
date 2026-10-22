@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import ts from "typescript"
+import * as zod from "zod"
 import * as orm from "drizzle-orm"
 import { PgDialect } from "drizzle-orm/pg-core"
 import * as schema from "../lib/db/schema.ts"
@@ -44,50 +45,100 @@ let failing = false
 let transactions = 0
 const writes = []
 const paths = []
-const { createGroupChat } = load("../actions/group-chat.ts", {
-  "@clerk/nextjs/server": {
-    auth: {
-      protect: async () => {
-        if (!authenticated) throw new Error("Unauthorized")
-        return { userId: "user_1" }
+let groupExists = true
+let deleteCalls = 0
+function checkGroupPredicate(predicate) {
+  const query = new PgDialect().sqlToQuery(predicate)
+  assert.deepEqual(query.params, ["group_1", "user_1", "group"])
+  assert.match(query.sql, /"chats"\."user_id"/)
+  assert.match(query.sql, /"chats"\."kind"/)
+}
+const { createGroupChat, updateGroupChat, deleteGroupChat } = load(
+  "../actions/group-chat.ts",
+  {
+    "@clerk/nextjs/server": {
+      auth: {
+        protect: async () => {
+          if (!authenticated) throw new Error("Unauthorized")
+          return { userId: "user_1" }
+        },
       },
     },
-  },
-  "drizzle-orm": orm,
-  "next/cache": { revalidatePath: (...args) => paths.push(args) },
-  "@/lib/db/schema": schema,
-  "@/lib/db": {
-    db: {
-      transaction: async (callback) => {
-        transactions++
-        if (failing) throw new Error("Database unavailable")
-        const pending = []
-        const result = await callback({
-          select: () => ({
-            from: () => ({
-              where: (predicate) => {
+    "drizzle-orm": orm,
+    zod,
+    "next/cache": { revalidatePath: (...args) => paths.push(args) },
+    "@/lib/db/schema": schema,
+    "@/lib/db": {
+      db: {
+        delete: (table) => ({
+          where: (predicate) => {
+            assert.equal(table, schema.chats)
+            checkGroupPredicate(predicate)
+            deleteCalls++
+            return {
+              returning: async () => {
+                if (failing) throw new Error("Database unavailable")
+                return groupExists ? [{ id: "group_1" }] : []
+              },
+            }
+          },
+        }),
+        transaction: async (callback) => {
+          transactions++
+          if (failing) throw new Error("Database unavailable")
+          const pending = []
+          const result = await callback({
+            update: (table) => ({
+              set: (value) => ({
+                where: (predicate) => {
+                  assert.equal(table, schema.chats)
+                  checkGroupPredicate(predicate)
+                  pending.push({ table, value })
+                  return {
+                    returning: async () =>
+                      groupExists ? [{ id: "group_1" }] : [],
+                  }
+                },
+              }),
+            }),
+            delete: (table) => ({
+              where: async (predicate) => {
+                assert.equal(table, schema.chatMembers)
                 const query = new PgDialect().sqlToQuery(predicate)
-                assert.ok(query.params.includes("user_1"))
-                assert.match(query.sql, /"bots"\."user_id"/)
-                return { for: async () => owned }
+                assert.deepEqual(query.params, ["group_1", "bot_1", "bot_2"])
+                assert.match(query.sql, /not in/)
+                pending.push({ table, remove: true })
               },
             }),
-          }),
-          insert: (table) => ({
-            values: (value) => {
-              pending.push({ table, value })
-              return table === schema.chats
-                ? { returning: async () => [{ id: "group_1" }] }
-                : Promise.resolve()
-            },
-          }),
-        })
-        writes.push(...pending)
-        return result
+            select: () => ({
+              from: () => ({
+                where: (predicate) => {
+                  const query = new PgDialect().sqlToQuery(predicate)
+                  assert.ok(query.params.includes("user_1"))
+                  assert.match(query.sql, /"bots"\."user_id"/)
+                  return { for: async () => owned }
+                },
+              }),
+            }),
+            insert: (table) => ({
+              values: (value) => {
+                pending.push({ table, value })
+                return table === schema.chats
+                  ? { returning: async () => [{ id: "group_1" }] }
+                  : {
+                      then: (resolve) => resolve(),
+                      onConflictDoNothing: async () => {},
+                    }
+              },
+            }),
+          })
+          writes.push(...pending)
+          return result
+        },
       },
     },
-  },
-})
+  }
+)
 authenticated = false
 await assert.rejects(createGroupChat(valid), /Unauthorized/)
 assert.equal(transactions, 0)
@@ -119,6 +170,55 @@ assert.equal(writes.length, 2)
 failing = true
 assert.ok((await createGroupChat(valid)).error)
 assert.equal(paths.length, 1)
+
+// Updates must scope the group, validate every bot, and commit membership changes together.
+authenticated = false
+for (const action of [
+  () => updateGroupChat("group_1", valid),
+  () => deleteGroupChat("group_1"),
+])
+  await assert.rejects(action, /Unauthorized/)
+authenticated = true
+const beforeInvalid = transactions
+assert.ok((await updateGroupChat({}, valid)).error)
+assert.ok(
+  (await updateGroupChat("group_1", { ...valid, botIds: ["bot_1"] })).error
+)
+assert.equal(transactions, beforeInvalid)
+assert.ok((await deleteGroupChat(" ")).error)
+assert.equal(deleteCalls, 0)
+failing = false
+owned = [{ id: "bot_1" }, { id: "bot_2" }]
+const beforeUpdate = writes.length
+assert.deepEqual(
+  await updateGroupChat("group_1", {
+    ...valid,
+    userId: "attacker",
+    kind: "direct",
+    id: "spoof",
+  }),
+  { success: true }
+)
+assert.deepEqual(writes[beforeUpdate].value, { name: "Weekend plans" })
+assert.equal(writes[beforeUpdate + 1].remove, true)
+assert.deepEqual(writes[beforeUpdate + 2].value, [
+  { chatId: "group_1", botId: "bot_1" },
+  { chatId: "group_1", botId: "bot_2" },
+])
+const committed = writes.length
+owned = [{ id: "bot_1" }]
+assert.ok((await updateGroupChat("group_1", valid)).error)
+assert.equal(writes.length, committed)
+groupExists = false
+assert.ok((await updateGroupChat("group_1", valid)).error)
+assert.ok((await deleteGroupChat("group_1")).error)
+assert.equal(writes.length, committed)
+groupExists = true
+assert.deepEqual(await deleteGroupChat("group_1"), { success: true })
+failing = true
+assert.ok((await updateGroupChat("group_1", valid)).error)
+assert.ok((await deleteGroupChat("group_1")).error)
+assert.equal(paths.length, 3)
 
 const { GroupChatAvatar } = load("../components/group-chat-avatar.tsx", {
   "react/jsx-runtime": jsx,
