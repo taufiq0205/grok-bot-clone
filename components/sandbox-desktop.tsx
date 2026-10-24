@@ -1,6 +1,9 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useAuth } from "@clerk/nextjs"
+import { BILLING_ERROR, PAID_PLAN } from "@/lib/billing"
+import { showUpgradeToast } from "@/components/upgrade-toast"
 import type RFB from "@novnc/novnc"
 
 import { connectDesktop } from "@/actions/desktop"
@@ -21,6 +24,8 @@ export function SandboxDesktop({
   chatId: string
   name: string
 }) {
+  const { has } = useAuth()
+  const paid = has?.(PAID_PLAN) ?? false
   const preview = useRef<HTMLDivElement>(null)
   const fullscreenTarget = useRef<HTMLDivElement | null>(null)
   const screen = useRef<HTMLDivElement | null>(null)
@@ -33,6 +38,10 @@ export function SandboxDesktop({
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
+    if (!paid) {
+      showUpgradeToast()
+      return
+    }
     let disposed = false
     const host = document.createElement("div")
     host.className = "size-full"
@@ -48,6 +57,7 @@ export function SandboxDesktop({
         ])
         if (disposed) return
         if (!result.url) {
+          if (result.error === BILLING_ERROR) showUpgradeToast()
           setStatus("error")
           setError(
             result.error ?? "Could not connect to the desktop. Please retry."
@@ -85,7 +95,7 @@ export function SandboxDesktop({
       host.remove()
       screen.current = null
     }
-  }, [chatId, attempt])
+  }, [chatId, attempt, paid])
 
   // Move the existing canvas host; keep its WebSocket and remote session alive.
   const placeScreen = useCallback((target: HTMLDivElement | null) => {
@@ -97,6 +107,13 @@ export function SandboxDesktop({
       if (target) client.current.focus()
     }
   }, [])
+
+  if (!paid)
+    return (
+      <div className="p-4">
+        <Button onClick={showUpgradeToast}>Unlock sandbox desktop</Button>
+      </div>
+    )
 
   return (
     <div className="flex flex-col gap-3 p-4">

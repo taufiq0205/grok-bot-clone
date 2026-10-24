@@ -1,5 +1,9 @@
 "use client"
 
+import { useAuth } from "@clerk/nextjs"
+import { BILLING_ERROR, PAID_PLAN } from "@/lib/billing"
+import { showUpgradeToast } from "@/components/upgrade-toast"
+
 import { useState, useTransition, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { Controller, useForm, useWatch } from "react-hook-form"
@@ -59,6 +63,7 @@ export function GroupChatDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const { has } = useAuth()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleteError, setDeleteError] = useState<string>()
   const [pending, startTransition] = useTransition()
@@ -69,12 +74,14 @@ export function GroupChatDialog({
   })
   const selected = useWatch({ control: form.control, name: "botIds" })
   function onDelete() {
+    if (!has?.(PAID_PLAN)) return showUpgradeToast()
     if (!group) return
     setDeleteError(undefined)
     startTransition(async () => {
       try {
         const result = await deleteGroupChat(group.id)
         if (result.error) {
+          if (result.error === BILLING_ERROR) showUpgradeToast()
           setDeleteError(result.error)
           return
         }
@@ -88,6 +95,7 @@ export function GroupChatDialog({
     })
   }
   function onSubmit(values: CreateGroupChatInput) {
+    if (!has?.(PAID_PLAN)) return showUpgradeToast()
     form.clearErrors("root")
     startTransition(async () => {
       try {
@@ -95,6 +103,7 @@ export function GroupChatDialog({
           ? await updateGroupChat(group.id, values)
           : await createGroupChat(values)
         if (result.error) {
+          if (result.error === BILLING_ERROR) showUpgradeToast()
           form.setError("root", { message: result.error })
           return
         }
@@ -118,6 +127,7 @@ export function GroupChatDialog({
       open={open}
       onOpenChange={(value) => {
         if (pending) return
+        if (value && !has?.(PAID_PLAN)) return showUpgradeToast()
         setOpen(value)
         form.reset(group ?? { name: "", botIds: [] })
       }}

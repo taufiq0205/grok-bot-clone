@@ -1,5 +1,8 @@
 "use client"
 
+import { useAuth } from "@clerk/nextjs"
+import { BILLING_ERROR, PAID_PLAN } from "@/lib/billing"
+import { showUpgradeToast } from "@/components/upgrade-toast"
 import { useChat } from "@ai-sdk/react"
 import {
   useLoadTranscript,
@@ -54,7 +57,27 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
-export function Chat({
+export function Chat(props: { chatId: string; members?: ChatBot[] }) {
+  const { has, isLoaded } = useAuth()
+  if (!isLoaded)
+    return (
+      <p role="status" className="p-4">
+        Loading chat…
+      </p>
+    )
+  if (!has?.(PAID_PLAN))
+    return (
+      <div className="flex flex-col items-center gap-4 p-6">
+        <p className="text-muted-foreground">
+          Pro unlocks chat with your bots.
+        </p>
+        <Button onClick={showUpgradeToast}>Unlock chat</Button>
+      </div>
+    )
+  return <PaidChat {...props} />
+}
+
+function PaidChat({
   chatId,
   members,
 }: {
@@ -127,6 +150,9 @@ function ChatView({
     messages: initialMessages,
     transport,
     resume: initialMessages.length > 0,
+    onError: (error) => {
+      if (error.message === BILLING_ERROR) showUpgradeToast()
+    },
   })
   const pending = status === "submitted" || status === "streaming"
 

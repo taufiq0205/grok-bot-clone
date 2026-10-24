@@ -1,5 +1,10 @@
 "use client"
 
+import { useAuth } from "@clerk/nextjs"
+import { useRouter } from "next/navigation"
+import { BILLING_ERROR, PAID_PLAN } from "@/lib/billing"
+import { showUpgradeToast } from "@/components/upgrade-toast"
+
 import { useState, useTransition, type ReactNode } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Controller, useForm, useWatch } from "react-hook-form"
@@ -81,6 +86,8 @@ export function BotDialog({
   bot?: CreateBotInput & { id: string }
 }) {
   const [open, setOpen] = useState(false)
+  const { has } = useAuth()
+  const router = useRouter()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleteError, setDeleteError] = useState<string>()
   const [pending, startTransition] = useTransition()
@@ -94,12 +101,14 @@ export function BotDialog({
   })
 
   function onDelete() {
+    if (!has?.(PAID_PLAN)) return showUpgradeToast()
     if (!bot) return
     setDeleteError(undefined)
     startTransition(async () => {
       try {
         const result = await deleteBot(bot.id)
         if (result.error) {
+          if (result.error === BILLING_ERROR) showUpgradeToast()
           setDeleteError(result.error)
           return
         }
@@ -107,6 +116,7 @@ export function BotDialog({
         setOpen(false)
         form.reset()
         toast.add({ title: `${bot.name} deleted.`, type: "success" })
+        router.replace("/")
       } catch {
         setDeleteError("Could not delete your bot. Please try again.")
       }
@@ -114,6 +124,7 @@ export function BotDialog({
   }
 
   function onSubmit(values: CreateBotInput) {
+    if (!has?.(PAID_PLAN)) return showUpgradeToast()
     form.clearErrors("root")
     startTransition(async () => {
       try {
@@ -121,6 +132,7 @@ export function BotDialog({
           ? await updateBot(bot.id, values)
           : await createBot(values)
         if (result.error) {
+          if (result.error === BILLING_ERROR) showUpgradeToast()
           form.setError("root", { message: result.error })
           return
         }
@@ -144,6 +156,7 @@ export function BotDialog({
       open={open}
       onOpenChange={(nextOpen) => {
         if (pending) return
+        if (nextOpen && !has?.(PAID_PLAN)) return showUpgradeToast()
         form.reset(bot ?? { ...defaults, avatar: crypto.randomUUID() })
         setOpen(nextOpen)
       }}
@@ -326,8 +339,8 @@ export function BotDialog({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete {bot.name}?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This permanently deletes the bot and removes it from all
-                      chats. Chats remain. This cannot be undone.
+                      This permanently deletes the bot and its direct chat, and
+                      removes it from group chats. This cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   {deleteError && (

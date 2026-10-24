@@ -1,13 +1,15 @@
 "use server"
 
 import { auth } from "@clerk/nextjs/server"
+import { BILLING_ERROR, PAID_PLAN } from "@/lib/billing"
 import { z } from "zod"
 
 import { getChat } from "@/queries/chats"
 import { getDaytona } from "@/lib/daytona"
 
 export async function connectDesktop(chatId: unknown) {
-  await auth.protect()
+  const { has } = await auth.protect()
+  if (!has(PAID_PLAN)) return { error: BILLING_ERROR }
   const id = z.string().min(1).max(100).safeParse(chatId)
   if (!id.success) return { error: "Invalid chat. Refresh and try again." }
 
@@ -22,6 +24,7 @@ export async function connectDesktop(chatId: unknown) {
       await sandbox.start()
     else if (sandbox.state !== "started") await sandbox.waitUntilStarted()
     await sandbox.computerUse.start()
+    // shortcut: issued desktop connections survive downgrades; use a revocable proxy for immediate cutoff.
     const preview = await sandbox.getSignedPreviewUrl(6080, 3600)
     const url = new URL("/websockify", preview.url)
     url.protocol = "wss:"

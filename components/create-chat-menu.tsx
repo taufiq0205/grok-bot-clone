@@ -1,5 +1,8 @@
 "use client"
 
+import { useAuth } from "@clerk/nextjs"
+import { PAID_PLAN } from "@/lib/billing"
+import { showUpgradeToast } from "@/components/upgrade-toast"
 import { useState } from "react"
 import { PlusIcon, UsersIcon } from "lucide-react"
 import { BotDialog } from "@/components/bot-dialog"
@@ -16,6 +19,7 @@ import {
 import type { ChatBot } from "@/queries/chats"
 
 export function CreateChatMenu({ bots }: { bots: ChatBot[] }) {
+  const { has } = useAuth()
   const [groupOpen, setGroupOpen] = useState(false)
   return (
     <div className="flex justify-end">
@@ -42,7 +46,12 @@ export function CreateChatMenu({ bots }: { bots: ChatBot[] }) {
                 <PlusIcon aria-hidden="true" />
                 Create new bot
               </DialogTrigger>
-              <DropdownMenuItem onClick={() => setGroupOpen(true)}>
+              <DropdownMenuItem
+                onClick={() => {
+                  if (!has?.(PAID_PLAN)) return showUpgradeToast()
+                  setGroupOpen(true)
+                }}
+              >
                 <UsersIcon aria-hidden="true" />
                 Create a group chat
               </DropdownMenuItem>

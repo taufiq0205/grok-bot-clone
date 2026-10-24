@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import * as billing from "../lib/billing.ts"
 import { readFileSync } from "node:fs"
 import ts from "typescript"
 import * as orm from "drizzle-orm"
@@ -53,18 +54,24 @@ const sandbox = {
     if (sandboxFailure === "delete") throw new Error("Delete failed")
   },
 }
+let paid = true
 let authenticated = true
 let failingTable
 const rows = []
 const paths = []
 let updateRows = [["bot_1"]]
 let updateFailure = false
+let cleanupFailure = false
 const updates = []
 const updateDb = drizzle({
   client: {
     query: async (query, values) => {
       updates.push({ text: query.text, values })
-      if (updateFailure) throw new Error("Database unavailable")
+      if (
+        updateFailure ||
+        (cleanupFailure && query.text.startsWith('delete from "chats"'))
+      )
+        throw new Error("Database unavailable")
       return { rows: updateRows }
     },
   },
@@ -91,11 +98,12 @@ const dependencies = {
     },
   },
   "drizzle-orm": orm,
+  "@/lib/billing": billing,
   "@clerk/nextjs/server": {
     auth: {
       protect: async () => {
         if (!authenticated) throw new Error("Unauthorized")
-        return { userId: "user_1" }
+        return { userId: "user_1", has: () => paid }
       },
     },
   },
@@ -108,6 +116,7 @@ const dependencies = {
       transaction: async (callback) => {
         const pending = []
         const result = await callback({
+          select: (...args) => updateDb.select(...args),
           delete: (...args) => updateDb.delete(...args),
           insert: (table) => ({
             values: (row) => {
@@ -143,6 +152,18 @@ new Function("require", "exports", compiled)((name) => {
   assert.ok(name in dependencies, `Unexpected dependency: ${name}`)
   return dependencies[name]
 }, actions)
+
+paid = false
+for (const invoke of [
+  () => actions.createBot(valid),
+  () => actions.updateBot("bot_1", valid),
+  () => actions.deleteBot("bot_1"),
+])
+  assert.deepEqual(await invoke(), { error: billing.BILLING_ERROR })
+assert.deepEqual(sandboxCalls, [])
+assert.deepEqual(rows, [])
+assert.deepEqual(updates, [])
+paid = true
 
 authenticated = false
 await assert.rejects(actions.createBot(valid), /Unauthorized/)
@@ -290,13 +311,30 @@ updateFailure = false
 updateRows = [["bot_1", "sandbox_1"]]
 const sandboxBeforeDelete = sandboxCalls.length
 assert.deepEqual(await actions.deleteBot("bot_1"), { success: true })
+const botDeletion = updates.findLast((query) =>
+  query.text.startsWith('delete from "bots"')
+)
 assert.match(
-  updates.at(-1).text,
+  botDeletion.text,
   /delete from "bots" where \("bots"\."id" = \$1 and "bots"\."user_id" = \$2\)/
 )
-assert.deepEqual(updates.at(-1).values, ["bot_1", "user_1"])
+assert.deepEqual(botDeletion.values, ["bot_1", "user_1"])
 assert.deepEqual(sandboxCalls.slice(sandboxBeforeDelete), ["get", "delete"])
+const chatCleanup = updates.findLast((query) =>
+  query.text.startsWith('delete from "chats"')
+)
+assert.ok(chatCleanup, "Deleting a bot must remove its orphaned direct chat")
+assert.match(chatCleanup.text, /"chats"\."user_id" = \$1/)
+assert.match(chatCleanup.text, /"chats"\."kind" = \$2/)
+assert.match(chatCleanup.text, /not exists .*"chat_members"/)
+assert.deepEqual(chatCleanup.values, ["user_1", "direct"])
+
 const deletePathCount = paths.length
+cleanupFailure = true
+assert.ok((await actions.deleteBot("bot_1")).error)
+assert.equal(paths.length, deletePathCount)
+cleanupFailure = false
+
 const beforeMissing = sandboxCalls.length
 updateRows = []
 assert.ok((await actions.deleteBot("other_users_bot")).error)
@@ -321,5 +359,5 @@ const beforeLegacy = sandboxCalls.length
 assert.deepEqual(await actions.deleteBot("bot_1"), { success: true })
 assert.equal(sandboxCalls.length, beforeLegacy)
 console.log(
-  "Delete checks passed: auth, ownership, sandbox deletion/failure, absent sandbox, commit retry, and legacy bot (stubbed)."
+  "Delete checks passed: auth, ownership, sandbox deletion/failure, absent sandbox, commit retry, orphan direct-chat cleanup, and legacy bot (stubbed)."
 )

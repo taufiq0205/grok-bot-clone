@@ -2,6 +2,8 @@ import { deepSeek } from "@ai-sdk/deepseek"
 import { chat } from "@trigger.dev/sdk/ai"
 import { Pool } from "pg"
 import { z } from "zod"
+import { requirePaidUser } from "../lib/paid-plan"
+import { BILLING_ERROR } from "../lib/billing"
 import { getDaytona } from "../lib/daytona"
 import { stepCountIs, tool, type ModelMessage } from "ai"
 import { createSandboxTools } from "../lib/sandbox-tools"
@@ -67,7 +69,10 @@ export const chatAgent = chat
     }),
     onValidateMessages: async ({ messages }) => messagesSchema.parse(messages),
     uiMessageStreamOptions: {
-      onError: () => "Could not get a reply. Please try again.",
+      onError: (error) =>
+        error instanceof Error && error.message === BILLING_ERROR
+          ? BILLING_ERROR
+          : "Could not get a reply. Please try again.",
     },
     run: async ({
       chatId,
@@ -81,6 +86,7 @@ export const chatAgent = chat
       if (!process.env.DEEPSEEK_API_KEY)
         throw new Error("DEEPSEEK_API_KEY is required")
       const { rows } = await pool.query<{
+        userId: string
         kind: "direct" | "group"
         id: string
         avatar: string
@@ -89,7 +95,7 @@ export const chatAgent = chat
         instructions: string | null
         sandboxId: string | null
       }>(
-        `SELECT c.kind, b.id, b.avatar, b.name, b.job, b.instructions, b.sandbox_id AS "sandboxId" FROM chats c
+        `SELECT c.user_id AS "userId", c.kind, b.id, b.avatar, b.name, b.job, b.instructions, b.sandbox_id AS "sandboxId" FROM chats c
        LEFT JOIN LATERAL (
          SELECT b.id, b.avatar, b.name, b.job, b.instructions, b.sandbox_id FROM chat_members m
          JOIN bots b ON b.id = m.bot_id AND b.user_id = c.user_id
@@ -99,6 +105,7 @@ export const chatAgent = chat
         [chatId, clientData?.botId ?? null]
       )
       if (!rows.length) throw new Error("Chat not found.")
+      await requirePaidUser(rows[0].userId)
       let bot = rows[0]
       if (bot.kind === "group" && !bot.name)
         throw new Error("Select a bot that belongs to this group.")
