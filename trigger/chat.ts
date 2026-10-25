@@ -4,7 +4,9 @@ import { Pool } from "pg"
 import { z } from "zod"
 import { requirePaidUser } from "../lib/paid-plan"
 import { BILLING_ERROR } from "../lib/billing"
-import { getDaytona } from "../lib/daytona"
+import { openMeteredSandbox } from "../lib/metered-sandbox"
+import { meteredModel } from "../lib/metered-model"
+import { MAX_OUTPUT_TOKENS, USAGE_ERROR, UsageError } from "../lib/usage-policy"
 import { stepCountIs, tool, type ModelMessage } from "ai"
 import { createSandboxTools } from "../lib/sandbox-tools"
 
@@ -55,8 +57,11 @@ export const chatAgent = chat
     tools: ({ chatId }) => ({
       handoff,
       ...createSandboxTools(async () => {
-        const { rows } = await pool.query<{ sandboxId: string | null }>(
-          `SELECT b.sandbox_id AS "sandboxId" FROM chats c
+        const { rows } = await pool.query<{
+          sandboxId: string | null
+          userId: string
+        }>(
+          `SELECT c.user_id AS "userId", b.sandbox_id AS "sandboxId" FROM chats c
        JOIN chat_members m ON m.chat_id = c.id
        JOIN bots b ON b.id = m.bot_id AND b.user_id = c.user_id
        WHERE c.id = $1 AND c.kind = 'direct' ORDER BY m.joined_at, b.id LIMIT 1`,
@@ -64,15 +69,18 @@ export const chatAgent = chat
         )
         if (!rows[0]?.sandboxId)
           throw new Error("No sandbox is associated with this chat")
-        return getDaytona().get(rows[0].sandboxId)
+        return openMeteredSandbox(rows[0].userId, rows[0].sandboxId)
       }),
     }),
     onValidateMessages: async ({ messages }) => messagesSchema.parse(messages),
     uiMessageStreamOptions: {
       onError: (error) =>
-        error instanceof Error && error.message === BILLING_ERROR
-          ? BILLING_ERROR
-          : "Could not get a reply. Please try again.",
+        error instanceof UsageError
+          ? USAGE_ERROR
+          : error instanceof Error &&
+              [BILLING_ERROR, USAGE_ERROR].includes(error.message)
+            ? error.message
+            : "Could not get a reply. Please try again.",
     },
     run: async ({
       chatId,
@@ -126,7 +134,7 @@ export const chatAgent = chat
       const memoryForBot = (sandboxId = bot.sandboxId) =>
         createSandboxTools(async () => {
           if (!sandboxId) throw new Error("This bot has no sandbox memory")
-          return getDaytona().get(sandboxId)
+          return openMeteredSandbox(rows[0].userId, sandboxId)
         })
       let memoryTools = memoryForBot()
       let handedOff = false
@@ -216,7 +224,9 @@ export const chatAgent = chat
           .filter(Boolean)
           .join("\n\n")
       const options = {
-        model: deepSeek("deepseek-flash"),
+        model: meteredModel(deepSeek("deepseek-flash"), rows[0].userId),
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
+        maxRetries: 0,
         messages: conversation,
         stopWhen: stepCountIs(20),
         providerOptions: { deepseek: { thinking: { type: "disabled" } } },

@@ -111,7 +111,11 @@ assert.deepEqual(calls.slice(-6), [
   ["type", "hello"],
   ["press", "enter", ["ctrl"]],
 ])
-assert.equal(resolutions, 1)
+assert.equal(
+  resolutions,
+  10,
+  "Reauthorize the sandbox lease before each operation"
+)
 assert.equal(calls.filter(([name]) => name === "desktop").length, 1)
 const output = await tools.viewScreen.execute({}, options)
 assert.equal(output.showInChat, false)

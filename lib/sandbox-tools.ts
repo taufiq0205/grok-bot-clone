@@ -9,7 +9,6 @@ const position = {
 }
 
 export function createSandboxTools(resolveSandbox: () => Promise<Sandbox>) {
-  let ready: Promise<Sandbox> | undefined
   let desktop: Promise<unknown> | undefined
   let queue: Promise<unknown> = Promise.resolve()
 
@@ -22,7 +21,7 @@ export function createSandboxTools(resolveSandbox: () => Promise<Sandbox>) {
     const result = queue
       .then(async () => {
         options.abortSignal?.throwIfAborted()
-        ready ??= resolveSandbox().then(async (sandbox) => {
+        const ready = resolveSandbox().then(async (sandbox) => {
           if (["stopped", "archived", "paused"].includes(sandbox.state ?? ""))
             await sandbox.start()
           else if (

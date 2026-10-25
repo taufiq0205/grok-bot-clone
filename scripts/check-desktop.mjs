@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import * as billing from "../lib/billing.ts"
+import * as usagePolicy from "../lib/usage-policy.ts"
 import { readFileSync } from "node:fs"
 import ts from "typescript"
 import { z } from "zod"
@@ -46,22 +47,22 @@ const { connectDesktop } = load("../actions/desktop.ts", {
       return chat
     },
   },
-  "@/lib/daytona": {
-    getDaytona: () => ({
-      get: async (id) => {
-        calls.push(["get", id])
-        if (fail) throw new Error("secret provider detail")
-        return {
-          state: "stopped",
-          start: async () => calls.push(["start"]),
-          computerUse: { start: async () => calls.push(["desktop"]) },
-          getSignedPreviewUrl: async (...args) => {
-            calls.push(["signed", ...args])
-            return { url: "https://6080-signed.example.test" }
-          },
-        }
-      },
-    }),
+  "@/lib/usage-policy": usagePolicy,
+  "@/lib/metered-sandbox": {
+    openMeteredSandbox: async (userId, id) => {
+      assert.equal(userId, "user_1")
+      calls.push(["get", id])
+      if (fail) throw new Error("secret provider detail")
+      return {
+        state: "stopped",
+        start: async () => calls.push(["start"]),
+        computerUse: { start: async () => calls.push(["desktop"]) },
+        getSignedPreviewUrl: async (...args) => {
+          calls.push(["signed", ...args])
+          return { url: "https://6080-signed.example.test" }
+        },
+      }
+    },
   },
 })
 paid = false
@@ -91,9 +92,8 @@ assert.deepEqual(await connectDesktop("chat_1"), {
 assert.deepEqual(calls, [
   ["authorize", "chat_1"],
   ["get", "owned_sandbox"],
-  ["start"],
   ["desktop"],
-  ["signed", 6080, 3600],
+  ["signed", 6080, 300],
 ])
 fail = true
 assert.deepEqual(await connectDesktop("chat_1"), {

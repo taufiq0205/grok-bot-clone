@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useAuth } from "@clerk/nextjs"
 import { BILLING_ERROR, PAID_PLAN } from "@/lib/billing"
-import { showUpgradeToast } from "@/components/upgrade-toast"
+import { showUpgradeToast, showUsageToast } from "@/components/upgrade-toast"
 import type RFB from "@novnc/novnc"
 
 import { connectDesktop } from "@/actions/desktop"
@@ -58,6 +58,8 @@ export function SandboxDesktop({
         if (disposed) return
         if (!result.url) {
           if (result.error === BILLING_ERROR) showUpgradeToast()
+          if ("usageLimit" in result && result.usageLimit)
+            showUsageToast(result.error)
           setStatus("error")
           setError(
             result.error ?? "Could not connect to the desktop. Please retry."

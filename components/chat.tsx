@@ -2,7 +2,8 @@
 
 import { useAuth } from "@clerk/nextjs"
 import { BILLING_ERROR, PAID_PLAN } from "@/lib/billing"
-import { showUpgradeToast } from "@/components/upgrade-toast"
+import { USAGE_ERROR } from "@/lib/usage-policy"
+import { showUpgradeToast, showUsageToast } from "@/components/upgrade-toast"
 import { useChat } from "@ai-sdk/react"
 import {
   useLoadTranscript,
@@ -156,6 +157,7 @@ function ChatView({
     transport,
     onError: (error) => {
       if (error.message === BILLING_ERROR) showUpgradeToast()
+      if (error.message === USAGE_ERROR) showUsageToast()
     },
   })
   useEffect(() => {

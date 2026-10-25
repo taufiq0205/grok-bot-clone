@@ -1,12 +1,22 @@
 "use server"
 
-import { and, eq, notExists } from "drizzle-orm"
+import { and, eq, notExists, sql } from "drizzle-orm"
 import { auth } from "@clerk/nextjs/server"
 import { BILLING_ERROR, PAID_PLAN } from "@/lib/billing"
 import { revalidatePath } from "next/cache"
 import { DaytonaNotFoundError, type Sandbox } from "@daytona/sdk"
 
 import { db } from "@/lib/db"
+import {
+  reserveSandboxCreation,
+  closeSandboxLease,
+} from "@/lib/metered-sandbox"
+import {
+  SANDBOX_TTL_MINUTES,
+  STORAGE_TTL_MINUTES,
+  sandboxCost,
+  UsageError,
+} from "@/lib/usage-policy"
 import { getDaytona } from "@/lib/daytona"
 import {
   bots,
@@ -26,12 +36,25 @@ export async function createBot(input: unknown) {
 
   let stage = "create sandbox"
   let sandbox: Sandbox | undefined
+  let lease: Awaited<ReturnType<typeof reserveSandboxCreation>> | undefined
   try {
-    sandbox = await getDaytona().create({ autoDeleteInterval: -1 })
+    lease = await reserveSandboxCreation(userId)
+    sandbox = await getDaytona().create(
+      {
+        name: lease.name,
+        ttlMinutes: SANDBOX_TTL_MINUTES,
+        autoStopInterval: 1,
+        autoDeleteInterval: STORAGE_TTL_MINUTES,
+        public: false,
+      },
+      { timeout: 60 }
+    )
+    sandboxCost(sandbox.cpu, sandbox.memory, sandbox.disk, sandbox.gpu)
     stage = "create MEMORY.md"
     await sandbox.fs.uploadFile(Buffer.alloc(0), "MEMORY.md", 60)
     stage = "stop sandbox"
     await sandbox.stop()
+    await sandbox.setTtl(STORAGE_TTL_MINUTES)
     const sandboxId = sandbox.id
     stage = "save bot and chat"
     await db.transaction(async (tx) => {
@@ -44,6 +67,9 @@ export async function createBot(input: unknown) {
         .values({ userId, kind: "direct" })
         .returning({ id: chats.id })
       await tx.insert(chatMembers).values({ chatId: chat.id, botId: bot.id })
+      await tx.execute(
+        sql`UPDATE usage_ledger SET closed_at=now(), settled_at=now() WHERE id=${lease!.id}`
+      )
     })
   } catch (error) {
     let message = error instanceof Error ? error.message : "Unknown error"
@@ -59,7 +85,20 @@ export async function createBot(input: unknown) {
         console.error("Failed to clean up bot sandbox", sandbox.id)
       }
     }
-    return { error: "Could not create your bot. Please try again." }
+    if (lease) {
+      try {
+        await closeSandboxLease(lease.id)
+      } catch {
+        console.error("Sandbox lease cleanup will retry")
+      }
+    }
+    return {
+      error:
+        error instanceof UsageError
+          ? error.message
+          : "Could not create your bot. Please try again.",
+      usageLimit: error instanceof UsageError,
+    }
   }
 
   revalidatePath("/(dashboard)", "layout")

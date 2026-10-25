@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import * as billing from "../lib/billing.ts"
+import * as usagePolicy from "../lib/usage-policy.ts"
 import { readFileSync } from "node:fs"
 import ts from "typescript"
 import * as orm from "drizzle-orm"
@@ -37,6 +38,11 @@ const sandboxCalls = []
 class DaytonaNotFoundError extends Error {}
 const sandbox = {
   id: "sandbox_1",
+  cpu: 1,
+  memory: 1,
+  disk: 3,
+  gpu: 0,
+  setTtl: async () => {},
   fs: {
     uploadFile: async (content, path) => {
       assert.equal(content.length, 0)
@@ -77,6 +83,14 @@ const updateDb = drizzle({
   },
 })
 const dependencies = {
+  "@/lib/usage-policy": usagePolicy,
+  "@/lib/metered-sandbox": {
+    reserveSandboxCreation: async () => ({
+      id: "lease_1",
+      name: "sandbox_name",
+    }),
+    closeSandboxLease: async () => {},
+  },
   "@/lib/daytona": {
     getDaytona: () => new dependencies["@daytona/sdk"].Daytona(),
   },
@@ -84,7 +98,13 @@ const dependencies = {
     DaytonaNotFoundError,
     Daytona: class {
       async create(params) {
-        assert.deepEqual(params, { autoDeleteInterval: -1 })
+        assert.deepEqual(params, {
+          name: "sandbox_name",
+          ttlMinutes: 6,
+          autoStopInterval: 1,
+          autoDeleteInterval: 1440,
+          public: false,
+        })
         sandboxCalls.push("create")
         if (sandboxFailure === "create") throw new Error("Create failed")
         return sandbox
@@ -116,6 +136,7 @@ const dependencies = {
       transaction: async (callback) => {
         const pending = []
         const result = await callback({
+          execute: async () => {},
           select: (...args) => updateDb.select(...args),
           delete: (...args) => updateDb.delete(...args),
           insert: (table) => ({

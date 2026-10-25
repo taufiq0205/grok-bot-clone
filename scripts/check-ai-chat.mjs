@@ -2,6 +2,7 @@ import { mockChatAgent } from "@trigger.dev/sdk/ai/test"
 import { chat as managedChat } from "@trigger.dev/sdk/ai"
 import assert from "node:assert/strict"
 import * as billing from "../lib/billing.ts"
+import * as usagePolicy from "../lib/usage-policy.ts"
 import { readFileSync } from "node:fs"
 import ts from "typescript"
 import { configure } from "@trigger.dev/sdk"
@@ -163,24 +164,25 @@ const { chatAgent } = load("../trigger/chat.ts", {
   zod: { z },
   ai: { stepCountIs, tool },
   "../lib/sandbox-tools": { createSandboxTools },
-  "../lib/daytona": {
-    getDaytona: () => ({
-      get: async (id) => {
-        sandboxIds.push(id)
-        return {
-          state: "started",
-          fs: {
-            listFiles: async () => [],
-            getFileDetails: async () => ({ size: 12 }),
-            downloadFile: async (path) => {
-              assert.equal(path, "MEMORY.md")
-              return Buffer.from(`Memory of ${id}`)
-            },
-            uploadFile: async (_, path) => assert.equal(path, "MEMORY.md"),
+  "../lib/usage-policy": usagePolicy,
+  "../lib/metered-model": { meteredModel: (model) => model },
+  "../lib/metered-sandbox": {
+    openMeteredSandbox: async (userId, id) => {
+      assert.equal(userId, "user_1")
+      sandboxIds.push(id)
+      return {
+        state: "started",
+        fs: {
+          listFiles: async () => [],
+          getFileDetails: async () => ({ size: 12 }),
+          downloadFile: async (path) => {
+            assert.equal(path, "MEMORY.md")
+            return Buffer.from(`Memory of ${id}`)
           },
-        }
-      },
-    }),
+          uploadFile: async (_, path) => assert.equal(path, "MEMORY.md"),
+        },
+      }
+    },
   },
   "@ai-sdk/deepseek": { deepSeek: (model) => model },
   "@trigger.dev/sdk/ai": {
@@ -705,6 +707,7 @@ const loadTranscript = async () => ({ messages: renderedMessages })
 const { Chat } = load("../components/chat.tsx", {
   "@clerk/nextjs": { useAuth: () => ({ has: () => paid, isLoaded: true }) },
   "@/lib/billing": billing,
+  "@/lib/usage-policy": usagePolicy,
   "@/components/upgrade-toast": { showUpgradeToast() {} },
   "react/jsx-runtime": jsxRuntime,
   "next/image": {

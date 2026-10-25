@@ -1,4 +1,4 @@
-import { UserButton } from "@clerk/nextjs"
+import { AccountButton } from "@/components/account-button"
 import { formatDistanceToNowStrict } from "date-fns"
 import { ChatAvatar } from "@/components/chat-avatar"
 import { ChatSearch } from "@/components/chat-search"
@@ -92,21 +92,7 @@ export async function AppSidebar() {
               render={<div />}
               className="p-0 group-data-[collapsible=icon]:p-0! has-[:focus-visible]:ring-2"
             >
-              <UserButton
-                showName
-                appearance={{
-                  elements: {
-                    rootBox: "w-full! min-w-0",
-                    userButtonTrigger:
-                      "w-full! h-8! rounded-md! p-2! bg-transparent! text-inherit! shadow-none! outline-none! hover:bg-transparent! active:bg-transparent! group-data-[collapsible=icon]:p-1!",
-                    userButtonBox:
-                      "w-full! min-w-0 flex-row-reverse! gap-2! group-data-[collapsible=icon]:justify-center! group-data-[collapsible=icon]:gap-0!",
-                    userButtonAvatarBox: "size-6! shrink-0",
-                    userButtonOuterIdentifier:
-                      "min-w-0 flex-1 truncate p-0! text-left text-sm! font-normal! text-inherit! group-data-[collapsible=icon]:hidden!",
-                  },
-                }}
-              />
+              <AccountButton />
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

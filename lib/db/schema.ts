@@ -1,6 +1,7 @@
 import { relations } from "drizzle-orm"
 import {
   index,
+  integer,
   pgEnum,
   pgTable,
   primaryKey,
@@ -70,6 +71,43 @@ export const chatMembers = pgTable(
   (table) => [
     primaryKey({ columns: [table.chatId, table.botId] }),
     index("chat_members_bot_id_idx").on(table.botId),
+  ]
+)
+
+export const usagePeriods = pgTable(
+  "usage_periods",
+  {
+    userId: text("user_id").notNull(),
+    periodStart: timestamp("period_start", { withTimezone: true }).notNull(),
+    periodEnd: timestamp("period_end", { withTimezone: true }).notNull(),
+    aiMicros: integer("ai_micros").notNull().default(0),
+    sandboxMicros: integer("sandbox_micros").notNull().default(0),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.periodStart] })]
+)
+
+export const usageLedger = pgTable(
+  "usage_ledger",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    periodStart: timestamp("period_start", { withTimezone: true }).notNull(),
+    meter: text("meter", { enum: ["ai", "sandbox"] }).notNull(),
+    amountMicros: integer("amount_micros").notNull(),
+    settledAt: timestamp("settled_at", { withTimezone: true }),
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    sandboxName: text("sandbox_name"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    readyAt: timestamp("ready_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    purpose: text("purpose", { enum: ["create", "use"] }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("usage_ledger_user_period_idx").on(table.userId, table.periodStart),
   ]
 )
 

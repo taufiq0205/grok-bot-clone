@@ -6,15 +6,14 @@ import { BILLING_ERROR } from "./billing"
 export async function requirePaidUser(userId: string) {
   const clerk = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY })
   const subscription = await clerk.billing.getUserBillingSubscription(userId)
-  if (
-    !subscription.subscriptionItems.some(
-      (item) =>
-        item.plan?.slug === "pro" &&
-        (item.status === "active" ||
-          (item.status === "canceled" &&
-            item.periodEnd !== null &&
-            item.periodEnd > Date.now()))
-    )
+  const item = subscription.subscriptionItems.find(
+    (item) =>
+      item.plan?.slug === "pro" &&
+      (item.status === "active" ||
+        (item.status === "canceled" &&
+          item.periodEnd !== null &&
+          item.periodEnd > Date.now()))
   )
-    throw new Error(BILLING_ERROR)
+  if (!item) throw new Error(BILLING_ERROR)
+  return item
 }

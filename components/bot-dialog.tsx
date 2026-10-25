@@ -3,7 +3,7 @@
 import { useAuth } from "@clerk/nextjs"
 import { useRouter } from "next/navigation"
 import { BILLING_ERROR, PAID_PLAN } from "@/lib/billing"
-import { showUpgradeToast } from "@/components/upgrade-toast"
+import { showUpgradeToast, showUsageToast } from "@/components/upgrade-toast"
 
 import { useState, useTransition, type ReactNode } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -109,6 +109,8 @@ export function BotDialog({
         const result = await deleteBot(bot.id)
         if (result.error) {
           if (result.error === BILLING_ERROR) showUpgradeToast()
+          if ("usageLimit" in result && result.usageLimit)
+            showUsageToast(result.error)
           setDeleteError(result.error)
           return
         }
@@ -133,6 +135,8 @@ export function BotDialog({
           : await createBot(values)
         if (result.error) {
           if (result.error === BILLING_ERROR) showUpgradeToast()
+          if ("usageLimit" in result && result.usageLimit)
+            showUsageToast(result.error)
           form.setError("root", { message: result.error })
           return
         }
