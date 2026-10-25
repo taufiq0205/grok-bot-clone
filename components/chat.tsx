@@ -14,7 +14,7 @@ import { ChatAvatar } from "@/components/chat-avatar"
 import type { ChatBot } from "@/queries/chats"
 import { DropdownMenuGroup } from "@/components/ui/dropdown-menu"
 import { ChevronDownIcon } from "lucide-react"
-import { Fragment, useState } from "react"
+import { Fragment, useEffect, useState } from "react"
 import Image from "next/image"
 
 import {
@@ -96,11 +96,7 @@ function PaidChat({
   })
   const { messages, isLoading, error } = useLoadTranscript(
     chatId,
-    async (params) => {
-      const transcript = await loadChatTranscript(params)
-      if (transcript.messages.length > 0) await transport.start(chatId)
-      return transcript
-    },
+    loadChatTranscript,
     { transport }
   )
   if (isLoading)
@@ -145,15 +141,38 @@ function ChatView({
   transport: TriggerChatTransport
 }) {
   const [text, setText] = useState("")
-  const { messages, sendMessage, status, error, regenerate, stop } = useChat({
+  const [connectionError, setConnectionError] = useState(false)
+  const {
+    messages,
+    sendMessage,
+    status,
+    error,
+    regenerate,
+    stop,
+    resumeStream,
+  } = useChat({
     id: chatId,
     messages: initialMessages,
     transport,
-    resume: initialMessages.length > 0,
     onError: (error) => {
       if (error.message === BILLING_ERROR) showUpgradeToast()
     },
   })
+  useEffect(() => {
+    if (initialMessages.length === 0) return
+    let cancelled = false
+    void transport
+      .start(chatId)
+      .then(async () => {
+        if (!cancelled) await resumeStream()
+      })
+      .catch(() => {
+        if (!cancelled) setConnectionError(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [chatId, initialMessages.length, transport, resumeStream])
   const pending = status === "submitted" || status === "streaming"
 
   return (
@@ -339,6 +358,13 @@ function ChatView({
         <ConversationScrollButton />
       </Conversation>
       <div className="mx-auto flex w-full max-w-3xl shrink-0 flex-col gap-3 p-4">
+        {connectionError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              Could not reconnect to live replies. Reload to try again.
+            </AlertDescription>
+          </Alert>
+        )}
         {error && (
           <Alert variant="destructive">
             <AlertDescription>

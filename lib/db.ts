@@ -10,7 +10,7 @@ if (!process.env.DATABASE_URL) {
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  idleTimeoutMillis: 5_000,
+  idleTimeoutMillis: process.env.NODE_ENV === "development" ? 60_000 : 5_000,
   connectionTimeoutMillis: 10_000,
 })
 pool.on("error", () =>

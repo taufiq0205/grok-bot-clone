@@ -698,6 +698,10 @@ const renderedMessages = [
   },
 ]
 let transportClientData
+const connectionEffects = []
+let finishStart
+let resumeCalls = 0
+const loadTranscript = async () => ({ messages: renderedMessages })
 const { Chat } = load("../components/chat.tsx", {
   "@clerk/nextjs": { useAuth: () => ({ has: () => paid, isLoaded: true }) },
   "@/lib/billing": billing,
@@ -709,7 +713,7 @@ const { Chat } = load("../components/chat.tsx", {
       return React.createElement("img", props)
     },
   },
-  react: React,
+  react: { ...React, useEffect: (effect) => connectionEffects.push(effect) },
   "@/components/chat-avatar": {
     ChatAvatar: ({ seed }) => React.createElement("i", { "data-avatar": seed }),
   },
@@ -717,16 +721,34 @@ const { Chat } = load("../components/chat.tsx", {
   "lucide-react": primitives(["ChevronDownIcon"]),
   ai: { isToolUIPart, getToolName },
   "@ai-sdk/react": {
-    useChat: () => ({ messages: renderedMessages, status: "ready" }),
+    useChat: () => ({
+      messages: renderedMessages,
+      status: "ready",
+      resumeStream: async () => {
+        resumeCalls++
+      },
+    }),
   },
   "@trigger.dev/sdk/chat/react": {
     useTriggerChatTransport: (options) => {
       transportClientData = options.clientData
-      return {}
+      return {
+        start: () =>
+          new Promise((resolve) => {
+            finishStart = resolve
+          }),
+      }
     },
-    useLoadTranscript: () => ({ messages: renderedMessages, isLoading: false }),
+    useLoadTranscript: (_chatId, load) => {
+      assert.equal(
+        load,
+        loadTranscript,
+        "Transcript loading must not await session startup"
+      )
+      return { messages: renderedMessages, isLoading: false }
+    },
   },
-  "@/actions/chat": {},
+  "@/actions/chat": { loadChatTranscript: loadTranscript },
   "@/components/ai-elements/conversation": primitives([
     "Conversation",
     "ConversationContent",
@@ -773,6 +795,22 @@ const markup = renderToStaticMarkup(
   React.createElement(Chat, { chatId: "chat_1" })
 )
 assert.match(markup, /Done\./)
+const disconnect = connectionEffects.at(-1)()
+assert.match(
+  markup,
+  /Done\./,
+  "Saved messages render while session startup is pending"
+)
+assert.equal(resumeCalls, 0)
+finishStart()
+await new Promise(setImmediate)
+assert.equal(resumeCalls, 1, "Resume only after session startup")
+disconnect()
+const cancelConnection = connectionEffects.at(-1)()
+cancelConnection()
+finishStart()
+await new Promise(setImmediate)
+assert.equal(resumeCalls, 1, "Navigating away must cancel deferred resume")
 assert.doesNotMatch(markup, /reply-bot-avatar/)
 assert.match(markup, /output-available/)
 assert.match(markup, /input-streaming/)

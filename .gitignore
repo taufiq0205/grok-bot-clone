@@ -42,3 +42,13 @@ next-env.d.ts
 .neon
 
 .trigger
+
+# local agent state and credentials
+/.omc/
+/.codex/
+/.aws/
+/.ssh/
+*.key
+*.p12
+*.pfx
+*.log
