@@ -1,10 +1,10 @@
 import { Avatar, Style } from "@dicebear/core"
-import voxelBot from "@dicebear/styles/voxel-bot.json" with { type: "json" }
+import bottts from "@dicebear/styles/bottts.json" with { type: "json" }
 import Image from "next/image"
 
 import { cn } from "@/lib/utils"
 
-const style = new Style(voxelBot)
+const style = new Style(bottts)
 
 export function ChatAvatar({
   seed,
