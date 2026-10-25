@@ -1,5 +1,6 @@
 "use server"
 
+import { logger } from "@sentry/core"
 import { auth } from "@clerk/nextjs/server"
 import { BILLING_ERROR, PAID_PLAN } from "@/lib/billing"
 import { and, eq, inArray, notInArray } from "drizzle-orm"
@@ -40,8 +41,12 @@ export async function createGroupChat(input: unknown) {
       return group.id
     })
     revalidatePath("/(dashboard)", "layout")
+    logger.info("Group chat created", {
+      member_count: parsed.data.botIds.length,
+    })
     return { chatId }
   } catch {
+    logger.error("Group chat creation failed")
     return {
       error: "Could not create the group. Refresh your bot list and try again.",
     }
@@ -94,11 +99,13 @@ export async function updateGroupChat(chatId: unknown, input: unknown) {
         .onConflictDoNothing()
     })
   } catch {
+    logger.error("Group chat update failed")
     return {
       error: "Could not update the group. Refresh the page and try again.",
     }
   }
   revalidatePath("/(dashboard)", "layout")
+  logger.info("Group chat updated")
   return { success: true }
 }
 
@@ -122,8 +129,10 @@ export async function deleteGroupChat(chatId: unknown) {
     if (!group)
       return { error: "Group not found. Refresh the page and try again." }
   } catch {
+    logger.error("Group chat deletion failed")
     return { error: "Could not delete the group. Please try again." }
   }
   revalidatePath("/(dashboard)", "layout")
+  logger.info("Group chat deleted")
   return { success: true }
 }

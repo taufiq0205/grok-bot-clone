@@ -1,3 +1,4 @@
+import { logger } from "@sentry/core"
 import { wrapLanguageModel, type LanguageModelMiddleware } from "ai"
 import { AI_RESERVATION, MAX_OUTPUT_TOKENS, aiCost } from "./usage-policy"
 import { getUsagePeriod, reserveUsage, settleAI } from "./usage"
@@ -27,13 +28,18 @@ export function meteredModel(
               if (part.type === "finish") {
                 const input = part.usage.inputTokens.total
                 const output = part.usage.outputTokens.total
-                if (input !== undefined && output !== undefined)
+                if (input !== undefined && output !== undefined) {
                   await settleAI(
                     reservation.id,
                     input,
                     output,
                     aiCost(input, output)
                   )
+                  logger.info("AI usage settled", {
+                    input_tokens: input,
+                    output_tokens: output,
+                  })
+                }
               }
               controller.enqueue(part)
             },

@@ -1,5 +1,6 @@
 "use server"
 
+import { logger } from "@sentry/core"
 import { auth } from "@clerk/nextjs/server"
 import { BILLING_ERROR, PAID_PLAN } from "@/lib/billing"
 import { z } from "zod"
@@ -25,11 +26,12 @@ export async function connectDesktop(chatId: unknown) {
     const preview = await sandbox.getSignedPreviewUrl(6080, 300)
     const url = new URL("/websockify", preview.url)
     url.protocol = "wss:"
+    logger.info("Desktop connection prepared")
     return { url: url.toString() }
   } catch (error) {
     if (error instanceof UsageError)
       return { error: error.message, usageLimit: true }
-    console.error("Failed to connect sandbox desktop")
+    logger.error("Desktop connection failed")
     return { error: "Could not connect to the desktop. Please retry." }
   }
 }

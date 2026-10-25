@@ -1,3 +1,4 @@
+import { logger } from "@sentry/core"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { Pool } from "pg"
 
@@ -11,7 +12,7 @@ const pool = new Pool({
   connectionTimeoutMillis: 10_000,
 })
 pool.on("error", () =>
-  console.error("Unexpected idle database connection error")
+  logger.error("Unexpected idle database connection error")
 )
 
 export const db = drizzle({ client: pool })

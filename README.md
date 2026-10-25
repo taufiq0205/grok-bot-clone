@@ -20,6 +20,46 @@ Configure deployed secrets in Vercel's project environment settings, scoped to
 Development, Preview, or Production as appropriate. Use Clerk production keys
 for Production. See the [Vercel environment CLI docs](https://vercel.com/docs/cli/env).
 
+## Sentry
+
+The Next.js browser, Node.js, and Edge runtimes report errors to the
+`taufiq-7m/grok-bot-clone` Sentry project. Tracing samples 100% in development
+and 10% in production. Browser replay samples 10% of sessions and all error
+sessions, with the SDK's default text/input masking. User info, cookies, HTTP
+headers/bodies, query parameters, AI inputs/outputs, and database query data
+collection are disabled in the SDK configuration.
+
+The DSN in the Sentry config files is public, not an auth secret.
+Set `SENTRY_AUTH_TOKEN` in `.env.local` for local production builds and in
+Vercel's build environment for deployed builds. Create an organization auth
+token at <https://taufiq-7m.sentry.io/settings/auth-tokens/> with source-map
+upload permissions; never commit it. `withSentryConfig` uploads this app's
+build artifacts (including source content) to Sentry and deletes generated
+source maps after upload by default. Without the token, errors still arrive,
+but production stack traces may be unreadable. Release IDs are inferred from
+the build's Git commit; the SDK sets the runtime environment automatically.
+
+`trigger/init.ts` initializes Sentry once per worker, reports task failures,
+and emits structured task lifecycle logs with run/task IDs. Trigger.dev keeps
+ownership of OpenTelemetry; no second trace provider or AI instrumentation
+is installed. Logs flush before task suspension and after execution, and chat
+turns log their outcome and capture unexpected failures separately because a
+failed turn does not necessarily fail the task.
+
+Sentry 11 enables logs by default. Structured logs cover bot/group mutations,
+chat sessions and turns, desktop connections, sandbox tools and leases,
+usage settlement, and database pool failures. They omit chat content, tool
+arguments/results, names, credentials, signed URLs, and task payloads/outputs.
+Expected usage and billing limits are not captured as chat exceptions.
+
+The Trigger.dev deploy build also uploads source maps using the local
+`SENTRY_AUTH_TOKEN`; the runtime DSN is already configured in `trigger/init.ts`.
+Deploy workers separately with environment auto-sync disabled to preserve
+their existing environment-specific credentials. Existing chat sessions stay
+on their current worker version until handed off.
+
+Run `node scripts/check-sentry.mjs` for offline lifecycle/log-safety checks.
+
 ## Authentication
 
 Clerk provides sign-in, sign-up, account management, and sign-out. The home page

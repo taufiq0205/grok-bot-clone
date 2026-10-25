@@ -1,3 +1,4 @@
+import { logger } from "@sentry/core"
 import { schemaTask, schedules } from "@trigger.dev/sdk"
 import { z } from "zod"
 import { db } from "../lib/database"
@@ -25,6 +26,12 @@ export const sweepSandboxLeases = schedules.task({
     const results = await Promise.allSettled(
       rows.map(({ id }) => closeSandboxLease(id))
     )
+    if (rows.length)
+      logger.info("Sandbox lease sweep completed", {
+        lease_count: rows.length,
+        failed_count: results.filter((result) => result.status === "rejected")
+          .length,
+      })
     if (results.some((result) => result.status === "rejected"))
       throw new Error("Sandbox lease cleanup incomplete; retry required")
   },

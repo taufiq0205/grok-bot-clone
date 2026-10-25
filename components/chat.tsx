@@ -1,5 +1,6 @@
 "use client"
 
+import { logger } from "@sentry/core"
 import { useAuth } from "@clerk/nextjs"
 import { BILLING_ERROR, PAID_PLAN } from "@/lib/billing"
 import { USAGE_ERROR } from "@/lib/usage-policy"
@@ -156,6 +157,7 @@ function ChatView({
     messages: initialMessages,
     transport,
     onError: (error) => {
+      logger.warn("Chat client received an error", { chat_id: chatId })
       if (error.message === BILLING_ERROR) showUpgradeToast()
       if (error.message === USAGE_ERROR) showUsageToast()
     },
@@ -169,7 +171,10 @@ function ChatView({
         if (!cancelled) await resumeStream()
       })
       .catch(() => {
-        if (!cancelled) setConnectionError(true)
+        if (!cancelled) {
+          logger.error("Chat stream reconnection failed", { chat_id: chatId })
+          setConnectionError(true)
+        }
       })
     return () => {
       cancelled = true

@@ -1,5 +1,6 @@
 "use server"
 
+import { logger } from "@sentry/core"
 import { and, eq, notExists, sql } from "drizzle-orm"
 import { auth } from "@clerk/nextjs/server"
 import { BILLING_ERROR, PAID_PLAN } from "@/lib/billing"
@@ -72,24 +73,22 @@ export async function createBot(input: unknown) {
       )
     })
   } catch (error) {
-    let message = error instanceof Error ? error.message : "Unknown error"
-    for (const [key, value] of Object.entries(process.env)) {
-      if (value && /KEY|TOKEN|SECRET|PASSWORD|DATABASE_URL/.test(key))
-        message = message.replaceAll(value, "[REDACTED]")
-    }
-    console.error(`Failed to create bot: ${JSON.stringify({ stage, message })}`)
+    logger.error("Bot creation failed", {
+      stage,
+      error_type: error instanceof Error ? error.name : "Unknown",
+    })
     if (sandbox) {
       try {
         await sandbox.delete()
       } catch {
-        console.error("Failed to clean up bot sandbox", sandbox.id)
+        logger.error("Bot sandbox cleanup failed")
       }
     }
     if (lease) {
       try {
         await closeSandboxLease(lease.id)
       } catch {
-        console.error("Sandbox lease cleanup will retry")
+        logger.warn("Sandbox lease cleanup will retry")
       }
     }
     return {
@@ -102,6 +101,7 @@ export async function createBot(input: unknown) {
   }
 
   revalidatePath("/(dashboard)", "layout")
+  logger.info("Bot created")
   return { success: true }
 }
 
@@ -122,11 +122,12 @@ export async function updateBot(botId: unknown, input: unknown) {
       .returning({ id: bots.id })
     if (!bot) return { error: "Bot not found. Refresh the page and try again." }
   } catch {
-    console.error("Failed to update bot")
+    logger.error("Bot update failed")
     return { error: "Could not update your bot. Please try again." }
   }
 
   revalidatePath("/(dashboard)", "layout")
+  logger.info("Bot updated")
   return { success: true }
 }
 
@@ -172,10 +173,11 @@ export async function deleteBot(botId: unknown) {
     })
     if (!bot) return { error: "Bot not found. Refresh the page and try again." }
   } catch {
-    console.error("Failed to delete bot")
+    logger.error("Bot deletion failed")
     return { error: "Could not delete your bot. Please try again." }
   }
 
   revalidatePath("/(dashboard)", "layout")
+  logger.info("Bot deleted")
   return { success: true }
 }

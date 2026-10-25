@@ -1,3 +1,4 @@
+import { logger } from "@sentry/core"
 import { randomUUID } from "node:crypto"
 import type { PoolClient } from "pg"
 import { db } from "./database"
@@ -50,6 +51,9 @@ export async function withUsageLock<T>(
     await client.query("COMMIT")
     return result
   } catch (error) {
+    logger.warn("Usage transaction rolled back", {
+      error_type: error instanceof Error ? error.name : "Unknown",
+    })
     await client.query("ROLLBACK")
     throw error
   } finally {

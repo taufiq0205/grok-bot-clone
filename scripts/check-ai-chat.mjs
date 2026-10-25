@@ -1,3 +1,5 @@
+import * as sentryCore from "@sentry/core"
+import * as sentryNode from "@sentry/node"
 import { mockChatAgent } from "@trigger.dev/sdk/ai/test"
 import { chat as managedChat } from "@trigger.dev/sdk/ai"
 import assert from "node:assert/strict"
@@ -29,6 +31,8 @@ function load(path, dependencies) {
   ).outputText
   const exports = {}
   new Function("require", "exports", compiled)((name) => {
+    if (name === "@sentry/core") return sentryCore
+    if (name === "@sentry/node") return dependencies[name] ?? sentryNode
     assert.ok(name in dependencies, `Unexpected dependency: ${name}`)
     return dependencies[name]
   }, exports)
@@ -153,7 +157,12 @@ let uiHistory = []
 let readHistory = () => uiHistory
 let roster = []
 let workerPaid = true
+const turnExceptions = []
 const { chatAgent } = load("../trigger/chat.ts", {
+  "@sentry/node": {
+    captureException: (error) => turnExceptions.push(error),
+    flush: async () => true,
+  },
   "../lib/billing": billing,
   "../lib/paid-plan": {
     requirePaidUser: async (userId) => {
@@ -214,6 +223,29 @@ const messages = [
   { id: "1", role: "user", parts: [{ type: "text", text: "Hello" }] },
 ]
 uiHistory = messages
+const unexpectedTurnError = new Error("Unexpected provider failure")
+await chatAgent.onTurnComplete({
+  chatId: "chat_1",
+  error: unexpectedTurnError,
+  stopped: false,
+})
+assert.deepEqual(turnExceptions, [unexpectedTurnError])
+for (const error of [
+  new usagePolicy.UsageError(usagePolicy.USAGE_ERROR),
+  new Error(billing.BILLING_ERROR),
+]) {
+  await chatAgent.onTurnComplete({ chatId: "chat_1", error, stopped: false })
+}
+await chatAgent.onTurnComplete({
+  chatId: "chat_1",
+  error: new Error("Cancelled"),
+  stopped: true,
+})
+assert.equal(
+  turnExceptions.length,
+  1,
+  "expected limits and stopped turns are not captured as exceptions"
+)
 assert.deepEqual(await chatAgent.onValidateMessages({ messages }), messages)
 const taggedMessages = [
   {

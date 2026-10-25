@@ -1,3 +1,5 @@
+import { logger } from "@sentry/core"
+import { captureException, flush } from "@sentry/node"
 import { deepSeek } from "@ai-sdk/deepseek"
 import { chat } from "@trigger.dev/sdk/ai"
 import { Pool } from "pg"
@@ -16,7 +18,7 @@ const pool = new Pool({
   connectionTimeoutMillis: 10_000,
 })
 pool.on("error", () =>
-  console.error("Unexpected idle database connection error")
+  logger.error("Unexpected idle database connection error")
 )
 
 const handoff = tool({
@@ -73,6 +75,22 @@ export const chatAgent = chat
       }),
     }),
     onValidateMessages: async ({ messages }) => messagesSchema.parse(messages),
+    onTurnComplete: async ({ chatId, error, stopped }) => {
+      const expected =
+        error instanceof UsageError ||
+        (error instanceof Error &&
+          [BILLING_ERROR, USAGE_ERROR].includes(error.message))
+      if (error && !expected && !stopped) {
+        logger.error("Chat turn failed", { chat_id: chatId })
+        captureException(error)
+      } else {
+        logger.info("Chat turn completed", {
+          chat_id: chatId,
+          outcome: expected ? "limited" : stopped ? "stopped" : "completed",
+        })
+      }
+      await flush(2000)
+    },
     uiMessageStreamOptions: {
       onError: (error) =>
         error instanceof UsageError
@@ -274,6 +292,10 @@ export const chatAgent = chat
               bot = target
               memoryTools = memoryForBot()
               handedOff = true
+              logger.info("Group chat handed off", {
+                chat_id: chatId,
+                bot_id: bot.id,
+              })
               writeIdentity()
               return { botId: bot.id, name: bot.name, fromAvatar }
             },

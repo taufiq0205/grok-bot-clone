@@ -1,4 +1,5 @@
 import { tool } from "ai"
+import { logger } from "@sentry/core"
 import type { Sandbox } from "@daytona/sdk"
 import { z } from "zod"
 
@@ -44,6 +45,7 @@ export function createSandboxTools(resolveSandbox: () => Promise<Sandbox>) {
         return operation(sandbox)
       })
       .catch(() => {
+        logger.warn("Sandbox tool operation failed", { desktop: gui })
         throw new Error(
           "Sandbox operation failed. Check that the bot's sandbox is available and try again."
         )

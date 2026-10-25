@@ -1,5 +1,6 @@
 "use server"
 
+import { logger } from "@sentry/core"
 import { auth } from "@clerk/nextjs/server"
 import { BILLING_ERROR, PAID_PLAN } from "@/lib/billing"
 import { auth as triggerAuth, configure } from "@trigger.dev/sdk"
@@ -23,7 +24,9 @@ async function authorizeChat(chatId: string) {
 
 export async function startChatSession({ chatId }: { chatId: string }) {
   await authorizeChat(chatId)
-  return startSession({ chatId })
+  const result = await startSession({ chatId })
+  logger.info("Chat session started", { chat_id: chatId })
+  return result
 }
 
 export async function mintChatAccessToken(chatId: string) {
@@ -36,5 +39,7 @@ export async function mintChatAccessToken(chatId: string) {
 
 export async function loadChatTranscript({ chatId }: { chatId: string }) {
   await authorizeChat(chatId)
-  return loadTranscript({ chatId })
+  const result = await loadTranscript({ chatId })
+  logger.info("Chat transcript loaded", { chat_id: chatId })
+  return result
 }

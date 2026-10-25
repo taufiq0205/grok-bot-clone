@@ -1,4 +1,5 @@
 import type { NextConfig } from "next"
+import { withSentryConfig } from "@sentry/nextjs/config"
 
 const nextConfig: NextConfig = {
   devIndicators: false,
@@ -12,4 +13,9 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@daytona/sdk"],
 }
 
-export default nextConfig
+export default withSentryConfig(nextConfig, {
+  org: "taufiq-7m",
+  project: "grok-bot-clone",
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+})

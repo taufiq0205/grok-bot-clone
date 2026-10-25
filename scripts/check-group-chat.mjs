@@ -1,3 +1,4 @@
+import * as sentryCore from "@sentry/core"
 import assert from "node:assert/strict"
 import * as billing from "../lib/billing.ts"
 import { readFileSync } from "node:fs"
@@ -23,6 +24,7 @@ function load(path, dependencies) {
     }
   ).outputText
   new Function("require", "exports", compiled)((name) => {
+    if (name === "@sentry/core") return sentryCore
     assert.ok(name in dependencies, `Unexpected dependency: ${name}`)
     return dependencies[name]
   }, exports)

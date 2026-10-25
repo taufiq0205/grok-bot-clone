@@ -1,3 +1,4 @@
+import * as sentryCore from "@sentry/core"
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { randomUUID } from "node:crypto"
@@ -18,6 +19,7 @@ function load(file, dependencies) {
     }
   ).outputText
   new Function("require", "exports", code)((name) => {
+    if (name === "@sentry/core") return sentryCore
     assert.ok(name in dependencies, `Unexpected dependency: ${name}`)
     return dependencies[name]
   }, exports)

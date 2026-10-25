@@ -1,3 +1,4 @@
+import * as sentryCore from "@sentry/core"
 import assert from "node:assert/strict"
 import * as billing from "../lib/billing.ts"
 import * as usagePolicy from "../lib/usage-policy.ts"
@@ -82,6 +83,7 @@ const updateDb = drizzle({
     },
   },
 })
+const telemetry = []
 const dependencies = {
   "@/lib/usage-policy": usagePolicy,
   "@/lib/metered-sandbox": {
@@ -170,6 +172,13 @@ const compiled = ts.transpileModule(
 ).outputText
 const actions = {}
 new Function("require", "exports", compiled)((name) => {
+  if (name === "@sentry/core")
+    return {
+      logger: {
+        ...sentryCore.logger,
+        error: (...args) => telemetry.push(args),
+      },
+    }
   assert.ok(name in dependencies, `Unexpected dependency: ${name}`)
   return dependencies[name]
 }, actions)
@@ -250,22 +259,18 @@ for (const failure of ["create", "memory", "stop"]) {
   )
   assert.equal(rows.length, 3)
 }
-const originalError = console.error
-const errors = []
-console.error = (...args) => errors.push(args)
 sandboxFailure = "memory"
+assert.ok((await actions.createBot(valid)).error)
+assert.deepEqual(telemetry.at(-1), [
+  "Bot creation failed",
+  { stage: "create MEMORY.md", error_type: "Error" },
+])
+process.env.BOT_CHECK_SECRET = "Upload failed"
 try {
   assert.ok((await actions.createBot(valid)).error)
-  assert.equal(
-    errors[0][0],
-    'Failed to create bot: {"stage":"create MEMORY.md","message":"Upload failed"}'
-  )
-  process.env.BOT_CHECK_SECRET = "Upload failed"
-  assert.ok((await actions.createBot(valid)).error)
-  assert.match(errors.at(-1)[0], /"message":"\[REDACTED\]"/)
+  assert.ok(!JSON.stringify(telemetry).includes(process.env.BOT_CHECK_SECRET))
 } finally {
   delete process.env.BOT_CHECK_SECRET
-  console.error = originalError
 }
 sandboxFailure = undefined
 commitFailure = true

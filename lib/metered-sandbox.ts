@@ -1,3 +1,4 @@
+import { logger } from "@sentry/core"
 import { randomUUID } from "node:crypto"
 import { DaytonaNotFoundError, type Sandbox } from "@daytona/sdk"
 import { configure, tasks } from "@trigger.dev/sdk"
@@ -27,6 +28,7 @@ export async function reserveSandboxCreation(userId: string) {
     creating: true,
   })
   await scheduleStop(lease.id, lease.expiresAt)
+  logger.info("Sandbox creation reserved", { lease_id: lease.id })
   return { ...lease, name }
 }
 
@@ -74,6 +76,7 @@ export async function closeSandboxLease(id: string) {
       "UPDATE usage_ledger SET closed_at=now(), settled_at=now() WHERE id=$1",
       [id]
     )
+    logger.info("Sandbox lease closed", { lease_id: id })
   })
 }
 
@@ -123,8 +126,10 @@ export async function openMeteredSandbox(
       "UPDATE usage_ledger SET ready_at=now() WHERE id=$1 AND closed_at IS NULL",
       [lease.id]
     )
+    logger.info("Sandbox ready", { lease_id: lease.id })
     return sandbox
   } catch (error) {
+    logger.error("Sandbox startup failed", { lease_id: lease.id })
     await closeSandboxLease(lease.id)
     throw error
   }

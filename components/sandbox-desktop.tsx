@@ -1,5 +1,6 @@
 "use client"
 
+import { logger } from "@sentry/core"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useAuth } from "@clerk/nextjs"
 import { BILLING_ERROR, PAID_PLAN } from "@/lib/billing"
@@ -71,10 +72,14 @@ export function SandboxDesktop({
         connection.scaleViewport = true
         connection.viewOnly = !fullscreenTarget.current
         connection.addEventListener("connect", () => {
-          if (!disposed) setStatus("connected")
+          if (!disposed) {
+            logger.info("Desktop connected")
+            setStatus("connected")
+          }
         })
         const failed = () => {
           if (!disposed) {
+            logger.warn("Desktop disconnected")
             setStatus("error")
             setError("Desktop disconnected. Retry to reconnect.")
           }
@@ -84,6 +89,7 @@ export function SandboxDesktop({
         connection.addEventListener("credentialsrequired", failed)
       } catch {
         if (!disposed) {
+          logger.error("Desktop client connection failed")
           setStatus("error")
           setError("Could not connect to the desktop. Please retry.")
         }
