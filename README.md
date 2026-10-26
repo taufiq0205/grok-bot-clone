@@ -1,4 +1,4 @@
-# <img src="docs/mochi-icon.png" alt="Mochi mascot" width="48" height="48" align="center" /> Mochi
+# <img src="docs/mochi-icon.svg" alt="Mochi mascot" width="44" height="40" align="middle" /> Mochi
 
 Mochi is an AI agent workspace for creating bots, chatting with them individually or in groups, and giving them tools to work inside isolated cloud sandboxes. Each bot has its own instructions, avatar, and sandbox-backed memory. Agents can run shell commands, work with files, and interact with a Linux desktop that users can view through the browser.
 
