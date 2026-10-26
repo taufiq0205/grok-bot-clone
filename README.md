@@ -1,127 +1,107 @@
-# Next.js template
+# Mochi
 
-This is a Next.js template with shadcn/ui.
+Mochi is an AI agent workspace for creating bots, chatting with them individually or in groups, and giving them tools to work inside isolated cloud sandboxes. Each bot has its own instructions, avatar, and sandbox-backed memory. Agents can run shell commands, work with files, and interact with a Linux desktop that users can view through the browser.
 
-## Environment variables
+The app uses Next.js and React for the interface, Clerk for authentication and subscriptions, Neon PostgreSQL with Drizzle for application data, Trigger.dev for durable agent execution, DeepSeek through the AI SDK for model calls, and Daytona for sandbox compute. Sentry monitors the app and workers.
 
-For a fresh clone, copy `.env.example` to `.env.local` and fill in the Clerk
-development keys. Keep an existing `.env.local`; it already contains local keys.
-Only `.env.example` is tracked; real environment files are ignored by Git.
+## Prerequisites and how to run
 
-To download development variables from Vercel, first log in and link this checkout
-to the intended project, then run:
+### Prerequisites
 
-```bash
-npx vercel@latest env pull .env.local --environment=development
-```
+- Node.js 24 and npm. The Trigger.dev worker is configured for Node.js 24.
+- A Clerk application with a `pro` subscription plan. Bot creation, chat, and sandbox access require Pro; the worker also verifies the subscription period.
+- A Neon PostgreSQL database with pooled and direct connection URLs.
+- A Trigger.dev project, a development environment key, and CLI access to that project.
+- DeepSeek and Daytona API keys, with access to sandbox compute and desktop functionality.
 
-Back up `.env.local` before pulling: values with matching names may change.
-Configure deployed secrets in Vercel's project environment settings, scoped to
-Development, Preview, or Production as appropriate. Use Clerk production keys
-for Production. See the [Vercel environment CLI docs](https://vercel.com/docs/cli/env).
+This checkout is configured for the existing Mochi Trigger.dev project in `trigger.config.ts`. If running your own installation, replace that project reference and configure your own Sentry project and DSNs.
 
-## Sentry
-
-The Next.js browser, Node.js, and Edge runtimes report errors to the
-`taufiq-7m/grok-bot-clone` Sentry project. Tracing samples 100% in development
-and 10% in production. Browser replay samples 10% of sessions and all error
-sessions, with the SDK's default text/input masking. User info, cookies, HTTP
-headers/bodies, query parameters, AI inputs/outputs, and database query data
-collection are disabled in the SDK configuration.
-
-The DSN in the Sentry config files is public, not an auth secret.
-Set `SENTRY_AUTH_TOKEN` in `.env.local` for local production builds and in
-Vercel's build environment for deployed builds. Create an organization auth
-token at <https://taufiq-7m.sentry.io/settings/auth-tokens/> with source-map
-upload permissions; never commit it. `withSentryConfig` uploads this app's
-build artifacts (including source content) to Sentry and deletes generated
-source maps after upload by default. Without the token, errors still arrive,
-but production stack traces may be unreadable. Release IDs are inferred from
-the build's Git commit; the SDK sets the runtime environment automatically.
-
-`trigger/init.ts` initializes Sentry once per worker, reports task failures,
-and emits structured task lifecycle logs with run/task IDs. Trigger.dev keeps
-ownership of OpenTelemetry; no second trace provider or AI instrumentation
-is installed. Logs flush before task suspension and after execution, and chat
-turns log their outcome and capture unexpected failures separately because a
-failed turn does not necessarily fail the task.
-
-Sentry 11 enables logs by default. Structured logs cover bot/group mutations,
-chat sessions and turns, desktop connections, sandbox tools and leases,
-usage settlement, and database pool failures. They omit chat content, tool
-arguments/results, names, credentials, signed URLs, and task payloads/outputs.
-Expected usage and billing limits are not captured as chat exceptions.
-
-The Trigger.dev deploy build also uploads source maps using the local
-`SENTRY_AUTH_TOKEN`; the runtime DSN is already configured in `trigger/init.ts`.
-Deploy workers separately with environment auto-sync disabled to preserve
-their existing environment-specific credentials. Existing chat sessions stay
-on their current worker version until handed off.
-
-Run `node scripts/check-sentry.mjs` for offline lifecycle/log-safety checks.
-
-## Authentication
-
-Clerk provides sign-in, sign-up, account management, and sign-out. The home page
-is public; `/dashboard` requires a session through `await auth.protect()`.
-Protect future pages, Route Handlers, and Server Actions individually before accessing private data.
-
-The Clerk CLI provisioned temporary development keys in the ignored `.env.local`.
-Do not commit or expose `CLERK_SECRET_KEY`. To claim the development application:
+### Install and configure
 
 ```bash
-npx -y clerk@latest auth login
+git clone https://github.com/taufiq0205/mochi.git
+cd mochi
+npm ci
+cp .env.example .env.local
 ```
 
-Run `npm run dev`, then sign up at `/sign-up` and open `/dashboard`.
-Use the profile menu to sign out. With the server running, check signed-out access:
+For an existing checkout, keep your current `.env.local`. Fill in these values from the matching development services:
 
-```bash
-node scripts/check-auth.mjs
-```
+| Variable | Purpose |
+| --- | --- |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk's public development key |
+| `CLERK_SECRET_KEY` | Server-side Clerk access |
+| `DATABASE_URL` | Pooled Neon URL for application and worker queries |
+| `DATABASE_URL_UNPOOLED` | Direct Neon URL for Drizzle schema changes |
+| `DEEPSEEK_API_KEY` | Model access |
+| `DAYTONA_API_KEY` | Sandbox creation and operations |
+| `TRIGGER_SECRET_KEY` | Trigger.dev development environment key |
+| `SENTRY_AUTH_TOKEN` | Optional build-time source-map upload token |
 
-Before production, claim the application and configure production keys using
-`npx -y clerk@latest deploy`. Temporary development keys are not production-ready.
+Keep the Clerk route defaults from `.env.example`. Use `sslmode=verify-full` in the database URLs. Store secrets only in ignored environment files or provider environment settings; never prefix secrets with `NEXT_PUBLIC_`.
 
-## Database
-
-Drizzle uses the existing Neon database through `pg`. Set `DATABASE_URL` (pooled)
-and `DATABASE_URL_UNPOOLED` (direct) in `.env.local`; configure these separately
-in Vercel for deployed environments. Use `sslmode=verify-full` in both URLs to
-verify the server certificate and hostname without SSL mode deprecation warnings.
-Never prefix database URLs with `NEXT_PUBLIC_`.
-
-Import `db` from `@/lib/db` in Node.js server code. Authenticate with Clerk and
-scope queries to the signed-in user before accessing private data.
-
-Define tables in `lib/db/schema.ts`, then push schema changes directly:
+Apply the schema to the intended development database:
 
 ```bash
 npm run db:push
+npm run db:check
 ```
 
-`db:push` changes the database selected by `DATABASE_URL_UNPOOLED`. Review the
-proposed changes before applying them. The `bots` table stores each user's bots,
-with Nano IDs generated by Drizzle for IDs and avatar seeds. Use database push
-only; do not generate or run migrations.
+Schema changes use Drizzle push only; do not generate or run migrations. Review destructive changes before applying them. `db:push` targets `DATABASE_URL_UNPOOLED`.
 
-Run `npm run db:check` (Node.js 22.18+ required) for a read-only connection check,
-or `npm run db:studio` to open Drizzle Studio.
+### Start the app and worker
 
-## Adding components
-
-To add components to your app, run the following command:
+Run the Next.js app in one terminal:
 
 ```bash
-npx shadcn@latest add button
+npm run dev
 ```
 
-This will place the ui components in the `components` directory.
+Run the matching Trigger.dev CLI in another terminal:
 
-## Using components
-
-To use the components in your app, import them as follows:
-
-```tsx
-import { Button } from "@/components/ui/button";
+```bash
+npx trigger.dev@4.8.1 login
+npx trigger.dev@4.8.1 dev start --env-file .env.local
 ```
+
+Open [localhost:3000](http://localhost:3000), sign up, and activate a Pro subscription through your Clerk billing setup before creating bots or starting agent chats. Keep both processes running: the web app handles the interface and authorization, while the Trigger worker executes agent turns and sandbox lifecycle tasks.
+
+For a local production build:
+
+```bash
+npm run build
+npm run start
+```
+
+Deploy Trigger workers separately from the Next.js app. Hosted workers need `DATABASE_URL`, `CLERK_SECRET_KEY`, `DEEPSEEK_API_KEY`, and `DAYTONA_API_KEY` for the matching environment. Preserve deployed Trigger credentials: a local development `TRIGGER_SECRET_KEY` must never replace a production key. Disable environment auto-sync when deploying workers to avoid overwriting their existing credentials. Set `SENTRY_AUTH_TOKEN` in each build environment that uploads source maps.
+
+### Checks
+
+```bash
+npm run typecheck
+npm run lint
+node scripts/check-sentry.mjs
+```
+
+With the app running, `node scripts/check-auth.mjs` checks signed-out access. `npm run db:check` checks the live database connection. The Sentry script uses stubs; it does not prove live telemetry delivery.
+
+## Architecture
+
+![Mochi architecture: setup and access, agent execution, and browser desktop access](docs/project-architecture.png)
+
+[SVG diagram](docs/project-architecture.svg) · [Editable Excalidraw source](docs/project-architecture.excalidraw)
+
+1. **Setup and access.** The browser talks to Next.js Server Actions. Clerk authenticates requests and checks Pro access; Drizzle stores user-owned bots, chats, group membership, and usage records in Neon. Creating a bot provisions a private Daytona sandbox and initializes its `MEMORY.md`.
+2. **Agent execution.** Next.js authorizes access to a chat and issues scoped Trigger.dev session tokens. The browser streams chat through Trigger.dev; the durable `chat-agent` worker calls DeepSeek through the AI SDK and executes sandbox tools. Group chats support bot selection and handoff between members.
+3. **Desktop access.** Server-side authorization provides a signed desktop URL. The browser connects directly to Daytona's Linux desktop through noVNC.
+
+Usage admission reserves AI and sandbox allowances before provider work. Delayed stop tasks, a scheduled sweep, and sandbox TTLs bound compute and storage. Bot memory lives in its sandbox and expires with it; it is not indefinite storage. See [usage and billing](docs/usage-billing.md) for limits, accounting, and lifecycle details.
+
+Sentry captures app and worker errors and structured logs. Logs omit chat content, tool arguments/results, credentials, and signed URLs. Trigger.dev retains ownership of worker OpenTelemetry; source maps are configured for both app and worker builds.
+
+## Future work
+
+- **Hindsight memory:** integrate Hindsight for agent memory that persists beyond sandbox expiry, with recall across conversations and controls for reviewing and deleting stored memories.
+- **Visual agent workflows:** add an n8n-like workflow builder for connecting agents, tools, triggers, and conditions, with execution status and debugging for each step.
+
+These are planned capabilities. Today, bots use sandbox-backed `MEMORY.md` files and the agent flow is defined in code.

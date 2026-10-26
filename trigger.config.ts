@@ -26,7 +26,7 @@ export default defineConfig({
       esbuildPlugin(
         sentryEsbuildPlugin({
           org: "taufiq-7m",
-          project: "grok-bot-clone",
+          project: "mochi",
           authToken: process.env.SENTRY_AUTH_TOKEN,
         }),
         { placement: "last", target: "deploy" }

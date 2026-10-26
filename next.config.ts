@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
 
 export default withSentryConfig(nextConfig, {
   org: "taufiq-7m",
-  project: "grok-bot-clone",
+  project: "mochi",
   silent: !process.env.CI,
   widenClientFileUpload: true,
 })
